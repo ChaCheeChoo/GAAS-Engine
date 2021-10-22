@@ -23,7 +23,9 @@ font.c : font.raw
 	bin2c font.raw source/font.c Font
 
 all2:
+	mkdir ./build
+	mkdir ./build/lib
+	mkdir ./build/include
 	make font.c
 	cp ./source/*.h ./build/include/
 	make
-	make copyengine
