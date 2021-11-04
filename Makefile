@@ -23,9 +23,11 @@ font.c : font.raw
 	bin2c font.raw source/font.c Font
 
 all2:
+ifeq (,$(wildcard ./build))
 	mkdir ./build
 	mkdir ./build/lib
 	mkdir ./build/include
+endif
 	make font.c
 	cp ./source/*.h ./build/include/
 	make
