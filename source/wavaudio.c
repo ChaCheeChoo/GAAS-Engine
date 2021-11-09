@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "wavaudio.h"
+#include "collision.h"
 
 #define GAAS_NUM_AUDIO_CHANNELS 8
 #define GAAS_NUM_AUDIO_SAMPLES 512
@@ -210,6 +211,21 @@ void gaasWAVPlay(int channel, gaasWAVSound* sound) {
 	AudioStatus[channel].sound = sound;
 
 	sceKernelStartThread(AudioStatus[channel].threadhandle, sizeof(channel), &channel); 
+}
+
+void gaasWAVCalc3D(gaasWAVSound* sound, float range, struct ScePspFVector3 src, struct ScePspFVector3 dst) {
+	float distance = gaasCOLVectorDistance(src, dst);
+	float volume;
+	if(distance<range) {
+		gaasWAVSetPause(sound, 0);
+		volume = distance/range;
+		volume = 1.0-volume;
+		volume = volume*GAAS_VOLUME_MAX;
+	} else {
+		gaasWAVSetPause(sound, 1);
+	}
+
+	gaasWAVSetVolume(sound, volume, volume);
 }
 
 int wav_player(SceSize args, void *argp) {

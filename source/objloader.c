@@ -303,7 +303,7 @@ int gaasOBJColorLoad(const char *filename, int usesoffset, int fileoffset, int f
 		if(strchr(line,'\n')) strchr(line,'\n')[0]=0;
 		if(strchr(line,'\r')) strchr(line,'\r')[0]=0;
 
-        if(ret=sscanf(line, "v %f %f %f %d %d %d", &x, &y, &z, &r, &g, &b)) {
+        if((ret=sscanf(line, "v %f %f %f %d %d %d", &x, &y, &z, &r, &g, &b))) {
 			if(x<objModel[nextObj].min[0]) objModel[nextObj].min[0]=x;
 			if(y<objModel[nextObj].min[1]) objModel[nextObj].min[1]=y;
 			if(z<objModel[nextObj].min[2]) objModel[nextObj].min[2]=z;

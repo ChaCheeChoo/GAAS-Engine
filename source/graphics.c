@@ -139,6 +139,7 @@ void gaasGFXTexture(gaasImage* source, int filter, int repeat, int tfx) {
 	sceGuTexFunc(tfx,GU_TCC_RGBA);
 	sceGuTexFilter(filter, filter);
 	sceGuTexScale(1.0f, 1.0f);
+	sceGuTexOffset(0.0f,0.0f); 
 }
 
 void gaasGFXTextureMip(gaasImage* source, gaasImage* source1, gaasImage* source2, gaasImage* source3, gaasImage* source4, int max, int filter, int repeat, int tfx, int mode, float bias) {
@@ -148,6 +149,7 @@ void gaasGFXTextureMip(gaasImage* source, gaasImage* source1, gaasImage* source2
 	sceGuTexWrap(repeat, repeat); 
 	sceGuTexFunc(tfx,GU_TCC_RGBA);
 	sceGuTexFilter(filter, filter);
+	sceGuTexOffset(0.0f,0.0f); 
 
 	switch (max)
 	{
@@ -243,6 +245,40 @@ void gaasGFXSprite(int startx, int starty, int width, int height, gaasImage* sou
 	}
 	sceGuEnable(GU_DEPTH_TEST);
 	sceGuTexScale(1.0f, 1.0f);
+}
+
+void gaasGFXTextureScroller(gaasImage* source, float scrollx, float scrolly, float maxscroll, int filter, int repeat, int tfx) {
+	if(source==NULL) return;
+
+	static float scroll_prog_x;
+	static float scroll_prog_y;
+
+	sceGuTexMode(source->format,0,0,source->swizzled);
+	sceGuTexImage(0, source->tw, source->th, source->tw, source->data);
+	sceGuTexWrap(repeat, repeat); 
+	sceGuTexFunc(tfx,GU_TCC_RGBA);
+	sceGuTexFilter(filter, filter);
+	sceGuTexScale(1.0f, 1.0f);
+	sceGuTexOffset(scroll_prog_x, scroll_prog_y);
+
+	//loop back stuffz
+	if(scrollx>0 || scrolly>0) {
+		if(scroll_prog_x>=maxscroll || scroll_prog_y>=maxscroll) {
+			scroll_prog_x = 0.0f;
+			scroll_prog_y = 0.0f;
+		} else {
+			scroll_prog_x+=scrollx;
+			scroll_prog_y+=scrolly;
+		}
+	} else {
+		if(scroll_prog_x<=maxscroll || scroll_prog_y<=maxscroll) {
+			scroll_prog_x = 0.0f;
+			scroll_prog_y = 0.0f;
+		} else {
+			scroll_prog_x+=scrollx;
+			scroll_prog_y+=scrolly;
+		}
+	}
 }
 
 void gaasGFXRenderTargetSprite(Texture* texture, int x, int y, int width, int height) {

@@ -87,6 +87,18 @@ void gaasGFXFilledRect(int x, int y, int width, int height, unsigned int color);
 void gaasGFXSprite(int startx, int starty, int width, int height, gaasImage* source, int x, int y);
 
 /**
+ * Sets up a scrolling texture to put on a 3d model
+ * source - texture
+ * scrollx - how much to scroll on the X axis
+ * scrolly - how much to scroll on the Y axis
+ * maxscroll - how far either scroll value can go before getting reset to 0
+ * filter - GU_NEAREST or GU_LINEAR
+ * repeat - GU_CLAMP or GU_REPEAT
+ * tfx - GU_TFX_...
+**/
+void gaasGFXTextureScroller(gaasImage* source, float scrollx, float scrolly, float maxscroll, int filter, int repeat, int tfx);
+
+/**
  * Use a texture generated from render target as sprite
  * texture - texture generated from render target
  * width - width of crop from texture

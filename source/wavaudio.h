@@ -115,6 +115,15 @@ void gaasWAVSetPause(gaasWAVSound* s, int pause);
 void gaasWAVSetVolume(gaasWAVSound* s, u16 volleft, u16 volright);
 
 /**
+ * Updates volume of given sound depending on the distance between src and dst
+ * s - valid gaasWAVSound struct
+ * range - size of region where you start hearing sound, if distance is more than this sound won't be heard
+ * src - vector3 position of where the sound is
+ * dst - vector3 position of listener
+**/
+void gaasWAVCalc3D(gaasWAVSound* sound, float range, struct ScePspFVector3 src, struct ScePspFVector3 dst);
+
+/**
  * Plays given sound
  * channel - audio channel to play sound on (0-7)
  * s - valid gaasWAVSound struct
