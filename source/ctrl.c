@@ -2,10 +2,14 @@
 #include "ctrl.h"
 
 SceCtrlData Input; 
+
+void gaasCTRLSampleInput(int sampling_cycle) {
+    sceCtrlSetSamplingCycle(sampling_cycle);
+    sceCtrlPeekBufferPositive(&Input, 1); 
+    sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);
+}
  
 int gaasCTRLCheckButtonPressed(int button) { 
-    sceCtrlSetSamplingCycle(0);
-    sceCtrlPeekBufferPositive(&Input, 1); 
     if (Input.Buttons & button) {
         return 1; 
     } else {
@@ -14,19 +18,13 @@ int gaasCTRLCheckButtonPressed(int button) {
 }
 
 int gaasCTRLGetButtonPressed() {
-    sceCtrlSetSamplingCycle(0);
-    sceCtrlPeekBufferPositive(&Input, 1); 
     return Input.Buttons;
 }
 
 int gaasCTRLGetAnalogX() {
-    sceCtrlSetSamplingCycle(0);
-    sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);
     return Input.Lx;
 }
 
 int gaasCTRLGetAnalogY() {
-    sceCtrlSetSamplingCycle(0);
-    sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG); 
     return Input.Ly;
 }

@@ -215,7 +215,7 @@ void gaasWAVPlay(int channel, gaasWAVSound* sound) {
 
 void gaasWAVCalc3D(gaasWAVSound* sound, float range, struct ScePspFVector3 src, struct ScePspFVector3 dst) {
 	float distance = gaasCOLVectorDistance(src, dst);
-	float volume;
+	float volume = 0;
 	if(distance<range) {
 		gaasWAVSetPause(sound, 0);
 		volume = distance/range;

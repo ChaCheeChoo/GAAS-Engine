@@ -6,6 +6,13 @@
 #include <stddef.h>
 
 /**
+ * Checks for overall input
+ * Has to be run at the start of every frame
+ * sampling_cycle - set to 0 to sample input on every vblank period
+**/
+void gaasCTRLSampleInput(int sampling_cycle);
+
+/**
  * Checks if a button has been pressed
  * button - pspctrl.h PspCtrlButtons enum
 **/

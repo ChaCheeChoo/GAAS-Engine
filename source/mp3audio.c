@@ -13,8 +13,8 @@
 #define GAAS_VOLUME_MAX 0x8000
 
 /**
- * Note that the mp3 system will not continue playing if you turn your psp off and on
- * There is also a small chance that the game will crash if you turn off the psp while it's reading the next mp3 chunk
+ * Note that the mp3 system will not continue playing if you turn your psp off and on, meaning you would have to manually restart it
+ * There is also a small chance that the game will crash if you turn off the psp while it's reading the next mp3 chunk (I think)
 **/
 
 struct gaasCurrentMP3 {
@@ -40,7 +40,7 @@ int fillStreamBuffer(int fd, int handle) {
 	int write;
 	int pos;
 
-	sceMp3GetInfoToAddStreamData(handle, &dst, &write, &pos); 
+	curmp3.status = sceMp3GetInfoToAddStreamData(handle, &dst, &write, &pos); 
 
 	sceIoLseek32(fd, pos, SEEK_SET);
 	int read = sceIoRead(fd, dst, write);
@@ -49,7 +49,7 @@ int fillStreamBuffer(int fd, int handle) {
 		return 0;
 	}
 	
-	sceMp3NotifyAddStreamData(handle, read);
+	curmp3.status = sceMp3NotifyAddStreamData(handle, read);
 	return (pos>0);
 }
 
@@ -74,7 +74,7 @@ void mp3_player() {
 	int lastDecoded = 0;
 	int numPlayed = 0;
 
-	sceMp3SetLoopNum(curmp3.handle, curmp3.loop);
+	curmp3.status = sceMp3SetLoopNum(curmp3.handle, curmp3.loop);
 
 	while (curmp3.playing==1 && curmp3.status==0) {
 		// Check if we need to fill our stream buffer
@@ -90,6 +90,8 @@ void mp3_player() {
 			bytesDecoded = sceMp3Decode(curmp3.handle, &buf);
 			if (bytesDecoded>0) {
 				break;
+			} else if(bytesDecoded<0) {
+				curmp3.status = -999;
 			}
 			
 			if (sceMp3CheckStreamDataNeeded(curmp3.handle)<=0) {
@@ -124,8 +126,7 @@ void mp3_player() {
 }
 
 void gaasMP3Init() {
-	sceUtilityLoadModule(PSP_MODULE_AV_AVCODEC);
-	sceUtilityLoadModule(PSP_MODULE_AV_MP3);
+	gaasLoadAVModules();
 
 	curmp3.status = 1;
 	curmp3.threadhandle = sceKernelCreateThread("mp3_thread", mp3_player, 0x12, 0x10000, PSP_THREAD_ATTR_USER, NULL);
@@ -168,8 +169,7 @@ void gaasMP3Unpause() {
 void gaasMP3End() {
 	sceKernelDeleteThread(curmp3.threadhandle);
 
-	sceUtilityUnloadModule(PSP_MODULE_AV_MP3);
-	sceUtilityUnloadModule(PSP_MODULE_AV_AVCODEC);
+	gaasUnloadAVModules();
 
 	return; 
 }
