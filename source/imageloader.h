@@ -22,6 +22,7 @@ void gaasIMAGEFree(gaasImage *tex);
 /**
  * Loads a texture
  * Texture are recommended to be power^2 in width and height
+ * Also grayscale images will look corrupted when loaded, I'm not arsed to fix that, so just set the image to RGB
  * 
  * filename - The file to load
  * usesoffset - flag that tells the loader wether to load from a specific file or from the PSAR in EBOOT

@@ -12,6 +12,9 @@
  * then supply a "fileoffset" using gaasGWDGetOffsetFromName
  * and, if needed, supply a "filesize" using gaasGWDGetSizeFromName
  * when using either of those functions you have to remember to type out the full path and put ./ at the start, otherwise it will not work
+ * to generate a .gwd file simply run the GWDFileGen program, located in the root directory of the engine, in a command line and give it your asset directory
+ * "GWDFileGen ./Data"
+ * NOTE: this program is compiled for Linux by default, you'll have to manually recompile it for other platforms using the code located in the GWDGenSource directory
 **/
 
 /**

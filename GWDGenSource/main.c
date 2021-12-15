@@ -9,7 +9,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-char paths[256][256];
+char paths[512][256];
 
 int o=0;
 int TotalFiles = 0;

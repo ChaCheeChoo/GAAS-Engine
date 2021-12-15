@@ -3,7 +3,6 @@
 #include <pspgu.h>
 #include <pspgum.h>
 #include <string.h>
-#include <pspmath.h>
 
 #include "objloader.h"
 
@@ -316,7 +315,7 @@ int gaasOBJColorLoad(const char *filename, int usesoffset, int fileoffset, int f
 			if(ret==6) {
 				color_vert[v].color = GU_RGBA(r, g, b, 255);
 			} else {
-				color_vert[v].color = vfpu_rand_8888(0, 255);
+				color_vert[v].color = 0xFFFF00FF;
 			}
             v++;
         } else if(sscanf(line, "vt %f %f", &tu, &tv)==2) {

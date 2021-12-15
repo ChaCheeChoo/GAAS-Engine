@@ -1,6 +1,5 @@
 #include <pspgu.h>
 #include <pspgum.h>
-#include <pspmath.h>
 #include <stdio.h>
 
 #include "imageloader.h"
@@ -241,6 +240,45 @@ void gaasGFXSprite(int startx, int starty, int width, int height, gaasImage* sou
 		vertices[1].y = y + height;
 		vertices[1].z = 1;
 		sceGuDrawArray(GU_SPRITES, GU_TEXTURE_16BIT | GU_VERTEX_16BIT | GU_TRANSFORM_2D, 2, 0, vertices);
+		j += sliceWidth;
+	}
+	sceGuEnable(GU_DEPTH_TEST);
+	sceGuTexScale(1.0f, 1.0f);
+}
+
+void gaasGFXSpriteTinted(int startx, int starty, int width, int height, gaasImage* source, int x, int y, unsigned int tint) {
+	if(source==NULL) return;
+	sceGuTexFunc(GU_TFX_MODULATE,GU_TCC_RGBA);
+	sceGuTexMode(source->format, 0, 0, source->swizzled);
+	sceGuTexImage(0, source->tw, source->th, source->tw, source->data);
+	sceGuTexFilter(GU_NEAREST, GU_NEAREST);
+	float u = 1.0f / ((float)source->tw);
+	float v = 1.0f / ((float)source->th);
+	sceGuTexScale(u, v);
+	
+	sceGuDisable(GU_DEPTH_TEST);
+	int j = 0;
+	while (j < width) {
+		struct Vertex {
+        	unsigned short u,v;
+			unsigned int color;
+        	short x,y,z;
+		} *vertices = (struct Vertex*) sceGuGetMemory(2 * sizeof(struct Vertex));
+		int sliceWidth = 64;
+		if (j + sliceWidth > width) sliceWidth = width - j;
+		vertices[0].u = startx + j;
+		vertices[0].v = starty;
+		vertices[0].x = x + j;
+		vertices[0].y = y;
+		vertices[0].z = 1;
+		vertices[0].color = tint;
+		vertices[1].u = startx + j + sliceWidth;
+		vertices[1].v = starty + height;
+		vertices[1].x = x + j + sliceWidth;
+		vertices[1].y = y + height;
+		vertices[1].z = 1;
+		vertices[1].color = tint;
+		sceGuDrawArray(GU_SPRITES, GU_VERTEX_16BIT | GU_COLOR_8888 | GU_TEXTURE_16BIT | GU_TRANSFORM_2D, 2, 0, vertices);
 		j += sliceWidth;
 	}
 	sceGuEnable(GU_DEPTH_TEST);

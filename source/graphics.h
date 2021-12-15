@@ -87,6 +87,19 @@ void gaasGFXFilledRect(int x, int y, int width, int height, unsigned int color);
 void gaasGFXSprite(int startx, int starty, int width, int height, gaasImage* source, int x, int y);
 
 /**
+ * Crops part of a texture and renders that as a sprite with tint applied
+ * startx - X postion of where to start cropping
+ * starty - Y postion of where to start cropping
+ * width - width of crop from sheet
+ * height - height of crop from sheet
+ * source - sprite sheet texture
+ * x - sprite x position
+ * y - sprite y position
+ * tint - tint color
+**/
+void gaasGFXSpriteTinted(int startx, int starty, int width, int height, gaasImage* source, int x, int y, unsigned int tint);
+
+/**
  * Sets up a scrolling texture to put on a 3d model
  * source - texture
  * scrollx - how much to scroll on the X axis

@@ -3,10 +3,13 @@
 
 SceCtrlData Input; 
 
-void gaasCTRLSampleInput(int sampling_cycle) {
+void gaasCTRLInit(int sampling_cycle) {
     sceCtrlSetSamplingCycle(sampling_cycle);
-    sceCtrlPeekBufferPositive(&Input, 1); 
     sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);
+}
+
+void gaasCTRLSampleInput() {
+    sceCtrlPeekBufferPositive(&Input, 1); 
 }
  
 int gaasCTRLCheckButtonPressed(int button) { 

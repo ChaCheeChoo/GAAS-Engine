@@ -1,7 +1,6 @@
 #include <pspgu.h>
 #include <pspgum.h>
 #include <math.h>
-#include <pspmath.h>
 #include <stdio.h>
 
 #include "collision.h" 

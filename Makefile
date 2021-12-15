@@ -12,7 +12,7 @@ CXXFLAGS	= $(CFLAGS) -fno-exceptions -fno-rtti
 ASFLAGS	= $(CFLAGS)
 
 LIBDIR		= ./ include $(PSPSDK)/../lib
-LIBS		=	-ljpeg -lpng -lz -lpspvram -lpspgum_vfpu -lpspgu -lpspvfpu -lpspmath\
+LIBS		=	-ljpeg -lpng -lz -lpspvram -lpspgum_vfpu -lpspgu -lpspvfpu\
 				-lpsputility -lm -lpspaudio -lpspaudiocodec -lpspmp3 -lpsprtc -lpsppower\
 				
 LDFLAGS	=
@@ -31,3 +31,5 @@ endif
 	make font.c
 	cp ./source/*.h ./build/include/
 	make
+	cp ./build/include/*.h ./samples/common/
+	cp ./build/lib/libgaas.a ./samples/common/

@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <png.h>
 #include <stdlib.h>
+#include <string.h>
 #include <pspkernel.h>
 
 #include "imageloader.h"
