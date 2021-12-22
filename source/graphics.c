@@ -360,3 +360,13 @@ void gaasGFXRenderTargetSprite(Texture* texture, int x, int y, int width, int he
 	sceGuEnable(GU_DEPTH_TEST); 
 	sceGuTexScale(1.0f, 1.0f);
 }
+
+void gaasGFXRenderTargetTexture(Texture* texture, int filter, int repeat, int tfx) {
+	sceGuTexMode(texture->format,0,0,0);
+	sceGuTexImage(texture->mipmap,texture->width,texture->height,texture->stride,texture->data);
+	sceGuTexFunc(tfx,GU_TCC_RGB);
+	sceGuTexFilter(filter,filter);
+	sceGuTexWrap(repeat,repeat);
+	sceGuTexScale(1.0f,1.0f);
+	sceGuTexOffset(0.0f,0.0f); 
+}

@@ -46,6 +46,7 @@ void gaasGFXBillboard(ScePspFVector3 pos, gaasImage* source, float scale, unsign
 	sceGumLoadIdentity();
 	{
 		ScePspFVector3 rot = { 1.5708, 0, 1.5708 };
+		ScePspFVector3 posinv = {-pos.x, -pos.y, -pos.z};
 
 		LoadedViewMatrix=viewMatrix;
 
@@ -57,7 +58,7 @@ void gaasGFXBillboard(ScePspFVector3 pos, gaasImage* source, float scale, unsign
 
 		sceGumRotateXYZ(&rot);
 		sceGumMultMatrix(&LoadedViewMatrix);
-		sceGumTranslate(&pos);
+		sceGumTranslate(&posinv);
 
 		sceGumFullInverse();
 	}

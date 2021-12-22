@@ -7,7 +7,7 @@
 
 /**
  * Draws billboard (2d texture rendered in 3d space that's always facing the camera)
- * pos - Position of billboard in 3d space (when giving position to the billboard you need to invert the coordinates for it to work properly)
+ * pos - Position of billboard in 3d space
  * source - valid gaasImage struct
  * scale - size of billboard
  * color - billboard color
@@ -28,7 +28,7 @@ void gaasGFXBillboard(ScePspFVector3 pos, gaasImage* source, float scale, unsign
 
 /**
  * Draws animated billboard (2d texture rendered in 3d space that's always facing the camera, but animated)
- * pos - Position of billboard in 3d space (when giving position to the billboard you need to invert the coordinates for it to work properly)
+ * pos - Position of billboard in 3d space
  * source - valid gaasImage struct
  * collumns - how many collumns in a sprite sheet
  * rows - how many rows in a sprite sheet

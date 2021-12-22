@@ -33,7 +33,8 @@ void gaasOBJFreeSingle(int i);
  * color - custom color for obj (0xFFFFFFFF)
  * usebb - sets wether to use bounding boxes or not
  *      bounding boxes are invisible boxes generated around a mesh;
- *      if a bounding box is within the camera's region the mesh will be rendered
+ *      if a bounding box is within the camera's region the mesh will be rendered;
+ *      otherwise the mesh won't be rendered;
 **/
 void gaasOBJRender(int obj, int color, int usebb);
 

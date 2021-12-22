@@ -121,4 +121,13 @@ void gaasGFXTextureScroller(gaasImage* source, float scrollx, float scrolly, flo
 **/
 void gaasGFXRenderTargetSprite(Texture* texture, int x, int y, int width, int height);
 
+/**
+ * Sets up a texture generated from render target to put on a 3d model
+ * texture - texture generated from render target
+ * filter - GU_NEAREST or GU_LINEAR
+ * repeat - GU_CLAMP or GU_REPEAT
+ * tfx - GU_TFX_...
+**/
+void gaasGFXRenderTargetTexture(Texture* texture, int filter, int repeat, int tfx);
+
 #endif
