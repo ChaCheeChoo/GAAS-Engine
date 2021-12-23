@@ -120,6 +120,7 @@ void gaasGFXAnimatedBillboard(ScePspFVector3 pos, gaasImage* source, int collumn
 	sceGumLoadIdentity();
 	{
 		ScePspFVector3 rot = { 1.5708, 0, 1.5708 };
+		ScePspFVector3 posinv = {-pos.x, -pos.y, -pos.z};
 
 		LoadedViewMatrix=viewMatrix;
 
@@ -131,7 +132,7 @@ void gaasGFXAnimatedBillboard(ScePspFVector3 pos, gaasImage* source, int collumn
 
 		sceGumRotateXYZ(&rot);
 		sceGumMultMatrix(&LoadedViewMatrix);
-		sceGumTranslate(&pos);
+		sceGumTranslate(&posinv);
 
 		sceGumFullInverse();
 	}
