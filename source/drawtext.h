@@ -14,6 +14,6 @@
  * 
  * The function, while can be used, is not recommended compared to libraries like intraFont and is mostly used for debugging purposes
 **/
-void gaasGFXDebugString(const char* text, int x, int y, unsigned int color, int fw);
+void gaasDEBUGDrawString(const char* text, int x, int y, unsigned int color, int fw);
 
 #endif

@@ -46,8 +46,7 @@ static int fontwidthtab[128] = {
 	 8, 10,  8, 12  // | } ~  
 };
 
-void gaasGFXDebugString(const char* text, int x, int y, unsigned int color, int fw)
-{
+void gaasDEBUGDrawString(const char* text, int x, int y, unsigned int color, int fw) {
 	sceGuTexMode(GU_PSM_8888, 0, 0, 0);
 	sceGuTexImage(0, 256, 128, 256, Font);
 	sceGuTexFunc(GU_TFX_MODULATE, GU_TCC_RGBA);//GU_TFX_MODULATE GU_TFX_REPLACE
