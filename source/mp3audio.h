@@ -17,7 +17,7 @@ void gaasMP3End();
 /**
  * Loads an mp3 file for streaming
  * filename - The file to load
- * usesoffset - flag that tells the loader wether to load from a specific file or from the PSAR in EBOOT
+ * usesoffset - flag that tells the loader wheter to load from a specific file or from the PSAR in EBOOT
  *      if latter: filename needs to be "./EBOOT.PBP"
  * offset - location of file in EBOOT, only used when usesoffset==1
  * size - size of file in EBOOT, only used when usesoffset==1

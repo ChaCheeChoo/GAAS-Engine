@@ -7,7 +7,6 @@
 
 #include "imageloader.h"
 
-
 //internal functions
 unsigned int GetNextPower2(unsigned int n) {
     n--;
@@ -74,6 +73,7 @@ gaasImage* ImageCreate(int w, int h) {
     return tex;
 }
 
+//load png from file
 gaasImage* LoadPNG(const char* file, int usesoffset, int offset, int filesize) {
     FILE* fp;
 
@@ -100,7 +100,9 @@ gaasImage* LoadPNG(const char* file, int usesoffset, int offset, int filesize) {
     png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     png_set_error_fn(png_ptr, NULL, NULL, NULL);
     info_ptr = png_create_info_struct(png_ptr);
-    png_init_io(png_ptr, fp);
+
+    png_init_io(png_ptr, fp); //load from file
+
     png_set_sig_bytes(png_ptr, sig_read);
     png_read_info(png_ptr, info_ptr);
     png_get_IHDR(png_ptr, info_ptr, &width, &height, &bit_depth, &color_type, &interlace_type, NULL, NULL);
@@ -137,6 +139,94 @@ gaasImage* LoadPNG(const char* file, int usesoffset, int offset, int filesize) {
     return tex;
 }
 
+static char* anotherTempBuffer;
+static int readOffset = 0;
+
+void readMemCallback(png_structp png_ptr, png_bytep destination, png_size_t bytesToRead) {
+    memcpy((unsigned char*)destination, (char*)&anotherTempBuffer[readOffset], bytesToRead);
+    //printf("fuck 1  %d %d\n", bytesToRead, readOffset);
+    readOffset+=bytesToRead;
+}
+
+gaasImage* LoadPNGMemory(unsigned char *buffer, int size) {
+    const int PNG_SIG_BYTES = 8;
+    readOffset=PNG_SIG_BYTES;
+    char pngSignature[PNG_SIG_BYTES];
+    memcpy(pngSignature, buffer, PNG_SIG_BYTES * sizeof(char));
+
+    anotherTempBuffer=(char*)malloc(size);
+    memcpy(anotherTempBuffer, buffer, size);
+    
+    if(!png_check_sig((png_bytep)pngSignature, PNG_SIG_BYTES)){
+        printf("png signature is fucked\n");
+        return NULL;
+    }
+
+    png_structp png_ptr;
+    png_infop info_ptr;
+    png_bytep* row_pointers = NULL;
+    unsigned int sig_read = 0;
+    png_uint_32 width, height;
+    int interlace_type, bit_depth, color_type;
+    u32 x, y;
+    gaasColor *line;
+    gaasImage *tex;
+
+    png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    if (png_ptr == NULL) {
+        printf("png_ptr fucked\n");
+        return NULL;
+    }
+    png_set_error_fn(png_ptr, NULL, NULL, NULL);
+    info_ptr = png_create_info_struct(png_ptr);
+    if (info_ptr == NULL) {
+        png_destroy_read_struct(&png_ptr, NULL, NULL);
+        printf("info_ptr fucked\n");
+        return NULL;
+    }
+
+    if (setjmp(png_jmpbuf(png_ptr))) {
+        printf("Image loader fucked\n");
+        png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+        return NULL;
+    }
+
+    png_set_read_fn(png_ptr, (void*)&buffer, readMemCallback);//load from memory
+    png_set_sig_bytes(png_ptr, 8); 
+    png_read_info(png_ptr, info_ptr);
+    png_get_IHDR(png_ptr, info_ptr, &width, &height, &bit_depth, &color_type, &interlace_type, NULL, NULL);
+    png_set_strip_16(png_ptr);
+    png_set_packing(png_ptr);
+
+    if (color_type == PNG_COLOR_TYPE_PALETTE) {
+        png_set_palette_to_rgb(png_ptr);
+    }
+
+    if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) {
+        png_set_tRNS_to_alpha(png_ptr);
+    }
+
+    png_set_filler(png_ptr, 0xff, PNG_FILLER_AFTER);
+    
+    tex = ImageCreate(width, height);
+    line = malloc(width * 4);
+
+    for (y = 0; y < height; y++) {
+        png_read_row(png_ptr, (u8*) line, NULL);
+        
+        for (x = 0; x < width; x++) {
+            tex->data[x + y*tex->tw] = line[x];
+        }
+    }
+
+    free(line);
+    free(anotherTempBuffer);
+    png_read_end(png_ptr, info_ptr);
+    png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+
+    return tex;
+}
+
 //external functions
 void gaasIMAGEFree(gaasImage *tex) {
     if (tex == NULL) {
@@ -153,6 +243,38 @@ gaasImage* gaasIMAGELoad(const char* file, int swizzle, int usesoffset, int offs
     gaasImage *tex = NULL;
 
     tex = LoadPNG(file, usesoffset, offset, filesize);
+
+    if (tex == NULL) {
+        printf("png loader returned NULL\n");
+        gaasIMAGEFree(tex);
+        return NULL;
+    }
+
+    if (tex->w > 512 || tex->h > 512) {
+        printf("image too big\n");
+        gaasIMAGEFree(tex);
+        return NULL;
+    }
+
+    if (swizzle==1 && (tex->w >= 16 || tex->h >= 16)) {
+        u8 *tmp = malloc(tex->tw*tex->th*4);
+        Swizzle(tmp, (u8*)tex->data, tex->tw*4, tex->th);
+        free(tex->data);
+        tex->data = (gaasColor*)tmp;
+        tex->swizzled = 1;
+    } else {
+        tex->swizzled = 0;
+    }
+
+    sceKernelDcacheWritebackRange(tex->data, tex->tw*tex->th*4);
+
+    return tex;
+}
+
+gaasImage* gaasIMAGELoadFromBuffer(unsigned char *buffer, int size, int swizzle) {
+    gaasImage *tex = NULL;
+
+    tex = LoadPNGMemory(buffer, size);
 
     if (tex == NULL) {
         printf("png loader returned NULL\n");

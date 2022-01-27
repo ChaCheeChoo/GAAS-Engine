@@ -21,19 +21,33 @@ void gaasIMAGEFree(gaasImage *tex);
 
 /**
  * Loads a texture
- * Texture are recommended to be power^2 in width and height
+ * Textures are recommended to be power^2 in width and height
  * Also grayscale images will look corrupted when loaded, I'm not arsed to fix that, so just set the image to RGB
  * 
- * filename - The file to load
- * usesoffset - flag that tells the loader wether to load from a specific file or from the PSAR in EBOOT
- *      if latter: filename needs to be "./EBOOT.PBP"
+ * file - The file to load
+ * usesoffset - flag that tells the loader whether to load from a specific file or from the PSAR in EBOOT
+ *      if latter: file needs to be "./EBOOT.PBP"
  * offset - location of file in EBOOT, only used when usesoffset==1
  * filesize - size of file in EBOOT, only used when usesoffset==1
- * swizzle - wether to swizzle a texture or not; swizzling speeds up rendering time but isn't needed for 16x16 texture or lower
+ * swizzle - whether to swizzle a texture or not; swizzling speeds up rendering time but isn't needed for 16x16 texture or lower
  * 
  * returns: gaasImage structure
 **/
 gaasImage* gaasIMAGELoad(const char* file, int swizzle, int usesoffset, int offset, int filesize);
+
+/**
+ * Loads a texture from a buffer in memory
+ * Textures are recommended to be power^2 in width and height
+ * Also grayscale images will look corrupted when loaded, I'm not arsed to fix that, so just set the image to RGB
+ * With buffered loading you may need to do some fiddling with the export settings before a texture loads properly
+ * 
+ * buffer - buffer containing raw png data
+ * size - size of buffer
+ * swizzle - whether to swizzle a texture or not; swizzling speeds up rendering time but isn't needed for 16x16 texture or lower
+ * 
+ * returns: gaasImage structure
+**/
+gaasImage* gaasIMAGELoadFromBuffer(unsigned char *buffer, int size, int swizzle);
 
 /**
  * Saves texture as png file

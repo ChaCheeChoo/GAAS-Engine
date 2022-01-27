@@ -63,7 +63,7 @@ void gaasWAVEnd();
  * Loads a wav file into memory
  * NOTE: files need to be 16 bits stereo 44.1 kHz
  * file - The file to load
- * usesoffset - flag that tells the loader wether to load from a specific file or from the PSAR in EBOOT
+ * usesoffset - flag that tells the loader wheter to load from a specific file or from the PSAR in EBOOT
  *      if latter: file needs to be "./EBOOT.PBP"
  * fileoffset - location of file in EBOOT, only used when usesoffset==1
  * 
