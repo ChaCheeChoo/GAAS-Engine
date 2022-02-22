@@ -141,51 +141,20 @@ void gaasGFXTexture(gaasImage* source, int filter, int repeat, int tfx) {
 	sceGuTexOffset(0.0f,0.0f); 
 }
 
-void gaasGFXTextureMip(gaasImage* source, gaasImage* source1, gaasImage* source2, gaasImage* source3, gaasImage* source4, int max, int filter, int repeat, int tfx, int mode, float bias) {
+void gaasGFXTextureMip(gaasImageMipmap* source, int filter_min, int filter_mag, int repeat_u, int repeat_v, int tfx, int mode, float bias) {
 	if(source==NULL) return;
-	sceGuTexMode(source->format,max,0,source->swizzled);
-	sceGuTexLevelMode(mode, bias);
-	sceGuTexWrap(repeat, repeat); 
-	sceGuTexFunc(tfx,GU_TCC_RGBA);
-	sceGuTexFilter(filter, filter);
-	sceGuTexOffset(0.0f,0.0f); 
+	int levels=source->levels;
 
-	switch (max)
-	{
-	case 0:
-		sceGuTexImage(0, source->tw, source->th, source->tw, source->data);
-		break;
-	
-	case 1:
-		sceGuTexImage(0, source->tw, source->th, source->tw, source->data);
-		sceGuTexImage(1, source1->tw, source1->th, source1->tw, source1->data);
-		break;
-	
-	case 2:
-		sceGuTexImage(0, source->tw, source->th, source->tw, source->data);
-		sceGuTexImage(1, source1->tw, source1->th, source1->tw, source1->data);
-		sceGuTexImage(2, source2->tw, source2->th, source2->tw, source2->data);
-		break;
-	
-	case 3:
-		sceGuTexImage(0, source->tw, source->th, source->tw, source->data);
-		sceGuTexImage(1, source1->tw, source1->th, source1->tw, source1->data);
-		sceGuTexImage(2, source2->tw, source2->th, source2->tw, source2->data);
-		sceGuTexImage(3, source3->tw, source3->th, source3->tw, source3->data);
-		break;
-	
-	case 4:
-		sceGuTexImage(0, source->tw, source->th, source->tw, source->data);
-		sceGuTexImage(1, source1->tw, source1->th, source1->tw, source1->data);
-		sceGuTexImage(2, source2->tw, source2->th, source2->tw, source2->data);
-		sceGuTexImage(3, source3->tw, source3->th, source3->tw, source3->data);
-		sceGuTexImage(4, source4->tw, source4->th, source4->tw, source4->data);
-		break;
-	
-	default:
-		break;
-	}
+	sceGuTexMode(source->image[0]->format,levels-1,0,source->image[0]->swizzled);
+	sceGuTexLevelMode(mode, bias);
+	sceGuTexWrap(repeat_u, repeat_v); 
+	sceGuTexFunc(tfx,GU_TCC_RGBA);
+	sceGuTexFilter(filter_min, filter_mag);
+	sceGuTexOffset(0.0f,0.0f); 
 	sceGuTexScale(1.0f, 1.0f);
+	for(int i=0; i<levels; i++) {
+		sceGuTexImage(i, source->image[i]->tw, source->image[i]->th, source->image[i]->tw, source->image[i]->data);
+	}
 }
 
 void gaasGFXFilledRect(int x, int y, int width, int height, unsigned int color) {

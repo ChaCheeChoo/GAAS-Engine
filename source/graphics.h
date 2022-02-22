@@ -50,19 +50,14 @@ void gaasGFXTexture(gaasImage* source, int filter, int repeat, int tfx);
 
 /**
  * Sets up a texture to put on a 3d model with mip-mapping
- * source - texture
- * source1 - texture mip 1
- * source2 - texture mip 2
- * source3 - texture mip 3
- * source4 - texture mip 4
- * max - how many mip maps to use
- * filter - GU_NEAREST or GU_LINEAR
+ * source - mipmap texture(gaasImageMipmap)
+ * filter - mipmapping versions of GU_NEAREST or GU_LINEAR
  * repeat - GU_CLAMP or GU_REPEAT
  * tfx - GU_TFX_...
  * mode - mip mapping mode GU_TEXTURE_AUTO,GU_TEXTURE_SLOPE or GU_TEXTURE_CONST
  * bias - mip-map bias
 **/
-void gaasGFXTextureMip(gaasImage* source, gaasImage* source1, gaasImage* source2, gaasImage* source3, gaasImage* source4, int max, int filter, int repeat, int tfx, int mode, float bias);
+void gaasGFXTextureMip(gaasImageMipmap* source, int filter_min, int filter_mag, int repeat_u, int repeat_v, int tfx, int mode, float bias);
 
 /**
  * Draws a 2d rectangle

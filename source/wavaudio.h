@@ -43,6 +43,7 @@ typedef struct gaasWAVSound {
 	int loop;
 	u16 volumeLeft;
 	u16 volumeRight;
+	int priority;
 	int paused;
 	int free;
     char filename[256];
@@ -69,7 +70,7 @@ void gaasWAVEnd();
  * 
  * returns: valid gaasWAVSound struct
 **/
-gaasWAVSound* gaasWAVLoad(const char *file, int usesoffset, int fileoffset);
+gaasWAVSound* gaasWAVLoad(const char *file, int priority, int usesoffset, int fileoffset);
 
 /**
  * Returns audio channel id of given sound
@@ -128,6 +129,6 @@ void gaasWAVCalc3D(gaasWAVSound* sound, float range, struct ScePspFVector3 src, 
  * channel - audio channel to play sound on (0-7)
  * s - valid gaasWAVSound struct
 **/
-void gaasWAVPlay(int channel, gaasWAVSound* sound);
+void gaasWAVPlay(gaasWAVSound* sound);
 
 #endif

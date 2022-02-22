@@ -13,11 +13,18 @@ typedef struct {
     gaasColor *data;     /**< Pointer to raw data. */
 } gaasImage;
 
+typedef struct {
+    gaasImage* image[8];
+    int levels;
+} gaasImageMipmap;
+
 /**
  * Free's loaded image from ram
  * tex - pointer to loaded texture
 **/
 void gaasIMAGEFree(gaasImage *tex);
+
+void gaasIMAGEFreeMipmap(gaasImageMipmap *tex);
 
 /**
  * Loads a texture
@@ -48,6 +55,10 @@ gaasImage* gaasIMAGELoad(const char* file, int swizzle, int usesoffset, int offs
  * returns: gaasImage structure
 **/
 gaasImage* gaasIMAGELoadFromBuffer(unsigned char *buffer, int size, int swizzle);
+
+gaasImageMipmap* gaasIMAGELoadImageMipmap(const char* file, int swizzle, int mipmaplevels, int usesoffset, int offset, int filesize);
+
+gaasImageMipmap* gaasIMAGELoadImageMipmapFromBuffer(unsigned char *buffer, int size, int swizzle, int mipmaplevels);
 
 /**
  * Saves texture as png file

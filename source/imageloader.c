@@ -227,6 +227,22 @@ gaasImage* LoadPNGMemory(unsigned char *buffer, int size) {
     return tex;
 }
 
+gaasImage* DownscaleImage(gaasImage *tex) {
+    gaasImage *temp = NULL;
+    int width = tex->w/2;
+    int height = tex->h/2;
+    temp = ImageCreate(width, height);
+
+    for (int y = 0; y<height; y++) {  
+        temp->data[y*temp->tw] = tex->data[y*2*tex->tw];
+        for (int x = 0; x<width; x++) {
+            temp->data[x+y*temp->tw] = tex->data[x*2+y*2*tex->tw];
+        }
+    }
+    
+    return temp;
+}
+
 //external functions
 void gaasIMAGEFree(gaasImage *tex) {
     if (tex == NULL) {
@@ -236,6 +252,21 @@ void gaasIMAGEFree(gaasImage *tex) {
     free(tex->data);
     free(tex);
 
+    tex = NULL;
+}
+
+void gaasIMAGEFreeMipmap(gaasImageMipmap *tex) {
+    if (tex == NULL) {
+        return;
+    }
+
+    for(int i=0; i<tex->levels; i++) {
+        if(tex->image[i]!=NULL) {
+            gaasIMAGEFree(tex->image[i]);
+        }
+    }
+
+    free(tex);
     tex = NULL;
 }
 
@@ -299,6 +330,94 @@ gaasImage* gaasIMAGELoadFromBuffer(unsigned char *buffer, int size, int swizzle)
     }
 
     sceKernelDcacheWritebackRange(tex->data, tex->tw*tex->th*4);
+
+    return tex;
+}
+
+gaasImageMipmap* gaasIMAGELoadImageMipmap(const char* file, int swizzle, int mipmaplevels, int usesoffset, int offset, int filesize) {
+    gaasImageMipmap *tex = NULL;
+    tex = malloc(sizeof(gaasImageMipmap));
+
+    tex->levels = mipmaplevels+1;
+    tex->image[0] = LoadPNG(file, usesoffset, offset, filesize);
+
+    if (tex->image[0] == NULL) {
+        printf("png loader returned NULL\n");
+        gaasIMAGEFreeMipmap(tex);
+        return NULL;
+    }
+
+    if (tex->image[0]->w > 512 || tex->image[0]->h > 512) {
+        printf("image too big\n");
+        gaasIMAGEFreeMipmap(tex);
+        return NULL;
+    }
+
+    for(int i=0; i<mipmaplevels; i++) {
+        tex->image[i+1] = DownscaleImage(tex->image[i]);
+    }
+
+    if (swizzle==1 && (tex->image[0]->w >= 16 || tex->image[0]->h >= 16)) {
+        for(int i=0; i<mipmaplevels+1; i++) {
+            u8 *tmp = malloc(tex->image[i]->tw*tex->image[i]->th*4);
+            Swizzle(tmp, (u8*)tex->image[i]->data, tex->image[i]->tw*4, tex->image[i]->th);
+            free(tex->image[i]->data);
+            tex->image[i]->data = (gaasColor*)tmp;
+            tex->image[i]->swizzled = 1;
+        }
+    } else {
+        for(int i=0; i<mipmaplevels+1; i++) {
+            tex->image[i]->swizzled = 0;
+        }
+    }
+
+    for(int i=0; i<mipmaplevels+1; i++) {
+        sceKernelDcacheWritebackRange(tex->image[i]->data, tex->image[i]->tw*tex->image[i]->th*4);
+    }
+
+    return tex;
+}
+
+gaasImageMipmap* gaasIMAGELoadImageMipmapFromBuffer(unsigned char *buffer, int size, int swizzle, int mipmaplevels) {
+    gaasImageMipmap *tex = NULL;
+    tex = malloc(sizeof(gaasImageMipmap));
+
+    tex->levels = mipmaplevels+1;
+    tex->image[0] = LoadPNGMemory(buffer, size);
+
+    if (tex->image[0] == NULL) {
+        printf("png loader returned NULL\n");
+        gaasIMAGEFreeMipmap(tex);
+        return NULL;
+    }
+
+    if (tex->image[0]->w > 512 || tex->image[0]->h > 512) {
+        printf("image too big\n");
+        gaasIMAGEFreeMipmap(tex);
+        return NULL;
+    }
+
+    for(int i=0; i<mipmaplevels; i++) {
+        tex->image[i+1] = DownscaleImage(tex->image[i]);
+    }
+
+    if (swizzle==1 && (tex->image[0]->w >= 16 || tex->image[0]->h >= 16)) {
+        for(int i=0; i<mipmaplevels+1; i++) {
+            u8 *tmp = malloc(tex->image[i]->tw*tex->image[i]->th*4);
+            Swizzle(tmp, (u8*)tex->image[i]->data, tex->image[i]->tw*4, tex->image[i]->th);
+            free(tex->image[i]->data);
+            tex->image[i]->data = (gaasColor*)tmp;
+            tex->image[i]->swizzled = 1;
+        }
+    } else {
+        for(int i=0; i<mipmaplevels+1; i++) {
+            tex->image[i]->swizzled = 0;
+        }
+    }
+
+    for(int i=0; i<mipmaplevels+1; i++) {
+        sceKernelDcacheWritebackRange(tex->image[i]->data, tex->image[i]->tw*tex->image[i]->th*4);
+    }
 
     return tex;
 }

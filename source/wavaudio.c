@@ -22,6 +22,7 @@ enum {
 
 struct gaasAudioChannel {
 	int fd;
+	int busy;
 	SceUID threadhandle;
 	int channel;
 	int newOffset;
@@ -35,21 +36,20 @@ struct gaasAudioChannel AudioStatus[8];
 int wav_player(SceSize args, void *argp);
 
 static int seekChunk(int fd, int size, u32 id) {
-
 	typedef struct {
 		u32 id;
 		u32 size;
 	} ChunkHeader;
 	while (size > 0) {
 		ChunkHeader header;
-		sceIoRead(fd, &header, sizeof(header));
+		fread(&header, sizeof(header), 1, fd);
 		if (header.id == id) {
 			int offset = -sizeof(header);
-			sceIoLseek(fd, offset, PSP_SEEK_CUR);
+			fseek(fd, offset, SEEK_CUR);
 			return 1;
 		}
 
-		int offset = sceIoLseek(fd, header.size, PSP_SEEK_CUR);
+		int offset = fseek(fd, header.size, SEEK_CUR);
 		if (offset >= size) {
 			break;
 		}
@@ -58,12 +58,12 @@ static int seekChunk(int fd, int size, u32 id) {
 	return 0;
 }
 
-gaasWAVSound* gaasWAVLoad(const char *file, int usesoffset, int fileoffset) {
-    int fd = sceIoOpen(file, PSP_O_RDONLY, 0777);
+gaasWAVSound* gaasWAVLoad(const char *file, int priority, int usesoffset, int fileoffset) {
+    FILE* fd = fopen(file, "rw");
 	gaasWAVSound* temp = (gaasWAVSound*)malloc(sizeof(gaasWAVSound));
 
 	if(usesoffset==1) {
-		sceIoLseek(fd, fileoffset, PSP_SEEK_SET);
+		fseek(fd, fileoffset, SEEK_SET);
 	}
 
 	if (fd < 0) {
@@ -71,35 +71,35 @@ gaasWAVSound* gaasWAVLoad(const char *file, int usesoffset, int fileoffset) {
 		return NULL;
 	}
 
-	sceIoRead(fd, &temp->riffHeader, sizeof(temp->riffHeader));
+	fread(&temp->riffHeader, sizeof(temp->riffHeader), 1, fd);
 	if (temp->riffHeader.riffId != RIFF_ID || temp->riffHeader.waveId != WAVE_ID) {
 		printf("file not riff-wave %s\n", file);
-		sceIoClose(fd);
+		fclose(fd);
 		return NULL;
 	}
 	if (!seekChunk(fd, temp->riffHeader.size, FMT_ID)) {
 		printf("unable to find fmt header %s\n", file);
-		sceIoClose(fd);
+		fclose(fd);
 		return NULL;
 	}
 	
-	sceIoRead(fd, &temp->fmtHeader, sizeof(temp->fmtHeader));
+	fread(&temp->fmtHeader, sizeof(temp->fmtHeader), 1, fd);
 	if (temp->fmtHeader.fmtId != FMT_ID || temp->fmtHeader.format != 0x0001) {
 		printf("file not correct format %s\n", file);
 		printf("format = 0x%x\n", temp->fmtHeader.format);
-		sceIoClose(fd);
+		fclose(fd);
 		return NULL;
 	}
 	if (!seekChunk(fd, temp->riffHeader.size, DATA_ID)) {
 		printf("unable to find data header %s\n", file);
-		sceIoClose(fd);
+		fclose(fd);
 		return NULL;
 	}
 	
-	sceIoRead(fd, &temp->dataHeader, sizeof(temp->dataHeader));
+	fread(&temp->dataHeader, sizeof(temp->dataHeader), 1, fd);
 	if (temp->dataHeader.dataId != DATA_ID) {
 		printf("could not find 'data'-tag %s\n", file);
-		sceIoClose(fd);
+		fclose(fd);
 		return NULL;
 	}
 	
@@ -107,8 +107,10 @@ gaasWAVSound* gaasWAVLoad(const char *file, int usesoffset, int fileoffset) {
 	temp->info.numChannels = temp->fmtHeader.numChannels;
 	temp->info.bytesPerBlock = temp->info.bytesPerSample * temp->fmtHeader.numChannels;
 	temp->info.frequency = temp->fmtHeader.samplesPerSec;
-	temp->info.dataOffset = sceIoLseek(fd, 0, PSP_SEEK_CUR);
+	temp->info.dataOffset = fseek(fd, 0, SEEK_CUR);
 	temp->info.dataLength = temp->dataHeader.chunkSize;
+	
+	temp->priority = priority;
 
 	temp->volumeLeft = 0x8000;
 	temp->volumeRight = 0x8000;
@@ -121,11 +123,11 @@ gaasWAVSound* gaasWAVLoad(const char *file, int usesoffset, int fileoffset) {
 	temp->loop = 0;
 
 	int size = temp->info.dataLength;
-	sceIoLseek(fd, temp->info.dataOffset, SEEK_SET);
-	sceIoRead(fd, temp->data, size);
+	fseek(fd, temp->info.dataOffset, SEEK_CUR);
+	fread(temp->data, size, 1, fd);
 
 	strcpy(temp->filename, file);
-	sceIoClose(fd);
+	fclose(fd);
 
 	return temp;
 }
@@ -203,11 +205,23 @@ void gaasWAVEnd() {
 	}
 }
 
-/**
- * you should always check if gaasWAVGetSoundChannel returns -1 before playing a sound
- * also make sure no other sounds are being played on the same channel
-**/
-void gaasWAVPlay(int channel, gaasWAVSound* sound) {
+void gaasWAVPlay(gaasWAVSound* sound) {
+	int channel = 0;
+	for(int i=0; i<GAAS_NUM_AUDIO_CHANNELS; i++) {
+		if(AudioStatus[i].busy==0) {
+			channel=i;
+			break;
+		} else {
+			channel= -1;
+		}
+	}
+
+	if(channel==-1) {
+		printf("All channels are busy\n");
+		return;
+	}
+
+	AudioStatus[channel].busy = 1;
 	AudioStatus[channel].sound = sound;
 
 	sceKernelStartThread(AudioStatus[channel].threadhandle, sizeof(channel), &channel); 
@@ -293,6 +307,7 @@ int wav_player(SceSize args, void *argp) {
 	}
 
 	AudioStatus[chan].sound = NULL;
+	AudioStatus[chan].busy = 0;
     sceKernelExitThread(0);
 
 	return 0;
