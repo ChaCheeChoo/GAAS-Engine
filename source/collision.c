@@ -24,6 +24,10 @@ float gaasCOLVectorDistance(struct ScePspFVector3 pos1, struct ScePspFVector3 po
 	return sqrtf((pos2.x-pos1.x)*(pos2.x-pos1.x) + (pos2.y-pos1.y)*(pos2.y-pos1.y) + (pos2.z-pos1.z)*(pos2.z-pos1.z));
 }
 
+float gaasCOLVectorDistance2D(struct ScePspFVector2 pos1, struct ScePspFVector2 pos2) {
+	return sqrtf((pos2.x-pos1.x)*(pos2.x-pos1.x) + (pos2.y-pos1.y)*(pos2.y-pos1.y));
+}
+
 int gaasCOLSphereToSphere(struct SphereCollision Sph1, struct SphereCollision Sph2) {
 	//Calculate the distance between the centers of both spheres
 	float distance = gaasCOLVectorDistance(Sph1.pos, Sph2.pos);

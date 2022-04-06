@@ -121,6 +121,7 @@ gaasWAVSound* gaasWAVLoad(const char *file, int priority, int usesoffset, int fi
 	temp->data = malloc(temp->info.dataLength);
 
 	temp->loop = 0;
+	temp->playing = 0;
 
 	int size = temp->info.dataLength;
 	fseek(fd, temp->info.dataOffset, SEEK_CUR);
@@ -143,6 +144,7 @@ int gaasWAVGetSoundChannel(gaasWAVSound *s) {
 }
 
 void gaasWAVStop(gaasWAVSound* s) {
+	s->playing=0;
 	s->free = 1;
 }
 
@@ -221,22 +223,29 @@ void gaasWAVPlay(gaasWAVSound* sound) {
 		return;
 	}
 
+	sound->playing=1;
 	AudioStatus[channel].busy = 1;
 	AudioStatus[channel].sound = sound;
 
 	sceKernelStartThread(AudioStatus[channel].threadhandle, sizeof(channel), &channel); 
 }
 
-void gaasWAVCalc3D(gaasWAVSound* sound, float range, struct ScePspFVector3 src, struct ScePspFVector3 dst) {
-	float distance = gaasCOLVectorDistance(src, dst);
+void gaasWAVCalc2D(gaasWAVSound* sound, float range, struct ScePspFVector2 src, struct ScePspFVector2 dst) {
+	float distance = gaasCOLVectorDistance2D(src, dst);
 	float volume = 0;
+	printf("%f / %f  %d\n", distance, range, sound->playing);
 	if(distance<range) {
-		gaasWAVSetPause(sound, 0);
+		if(sound->playing==0) {
+			gaasWAVSetLoop(sound, 1);
+			gaasWAVPlay(sound);
+		}
 		volume = distance/range;
 		volume = 1.0-volume;
 		volume = volume*GAAS_VOLUME_MAX;
 	} else {
-		gaasWAVSetPause(sound, 1);
+		if(sound->playing==1) {
+			gaasWAVStop(sound);
+		}
 	}
 
 	gaasWAVSetVolume(sound, volume, volume);

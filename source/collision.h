@@ -17,7 +17,7 @@ typedef struct BoundingBox {
 /**
  *  Calculates the distance between two vectors 3d vectors
 **/
-float gaasCOLVectorDistance(struct ScePspFVector3 pos1, struct ScePspFVector3 pos2);
+float gaasCOLVectorDistance2D(struct ScePspFVector2 pos1, struct ScePspFVector2 pos2);
 
 /**
  * Checks if two spheres are colliding

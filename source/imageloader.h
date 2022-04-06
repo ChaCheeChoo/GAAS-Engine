@@ -24,6 +24,10 @@ typedef struct {
 **/
 void gaasIMAGEFree(gaasImage *tex);
 
+/**
+ * Free's loaded mipmap image from ram
+ * tex - pointer to loaded texture
+**/
 void gaasIMAGEFreeMipmap(gaasImageMipmap *tex);
 
 /**
@@ -56,6 +60,21 @@ gaasImage* gaasIMAGELoad(const char* file, int swizzle, int usesoffset, int offs
 **/
 gaasImage* gaasIMAGELoadFromBuffer(unsigned char *buffer, int size, int swizzle);
 
+/**
+ * Loads a texture and generates mipmaps
+ * Textures are recommended to be power^2 in width and height
+ * Also grayscale images will look corrupted when loaded, I'm not arsed to fix that, so just set the image to RGB
+ * 
+ * file - The file to load
+ * usesoffset - flag that tells the loader whether to load from a specific file or from the PSAR in EBOOT
+ *      if latter: file needs to be "./EBOOT.PBP"
+ * offset - location of file in EBOOT, only used when usesoffset==1
+ * filesize - size of file in EBOOT, only used when usesoffset==1
+ * swizzle - whether to swizzle a texture or not; swizzling speeds up rendering time but isn't needed for 16x16 texture or lower
+ * mipmaplevels - how many levels to generate
+ * 
+ * returns: gaasImageMipmap structure
+**/
 gaasImageMipmap* gaasIMAGELoadImageMipmap(const char* file, int swizzle, int mipmaplevels, int usesoffset, int offset, int filesize);
 
 gaasImageMipmap* gaasIMAGELoadImageMipmapFromBuffer(unsigned char *buffer, int size, int swizzle, int mipmaplevels);

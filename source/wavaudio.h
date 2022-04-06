@@ -46,6 +46,7 @@ typedef struct gaasWAVSound {
 	int priority;
 	int paused;
 	int free;
+	int playing;
     char filename[256];
     void* data;
 } gaasWAVSound;
@@ -122,7 +123,7 @@ void gaasWAVSetVolume(gaasWAVSound* s, u16 volleft, u16 volright);
  * src - vector3 position of where the sound is
  * dst - vector3 position of listener
 **/
-void gaasWAVCalc3D(gaasWAVSound* sound, float range, struct ScePspFVector3 src, struct ScePspFVector3 dst);
+void gaasWAVCalc2D(gaasWAVSound* sound, float range, struct ScePspFVector2 src, struct ScePspFVector2 dst);
 
 /**
  * Plays given sound
