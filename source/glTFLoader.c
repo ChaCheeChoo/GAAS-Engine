@@ -557,29 +557,29 @@ void gaas_GLTF_internal_LoadMaterials(int mat_id, int miplevels) {
 	switch(data->materials[mat_id].pbr_metallic_roughness.base_color_texture.texture->sampler->min_filter) {
 		case 9728:
 			if(miplevels>0) {
-				materials[mat_id].filter_mag=GU_NEAREST_MIPMAP_LINEAR;
+				materials[mat_id].filter_min=GU_NEAREST_MIPMAP_LINEAR;
 			} else {
-				materials[mat_id].filter_mag=GU_NEAREST;
+				materials[mat_id].filter_min=GU_NEAREST;
 			}
 			break;
 		case 9729:
 			if(miplevels>0) {
-				materials[mat_id].filter_mag=GU_LINEAR_MIPMAP_LINEAR;
+				materials[mat_id].filter_min=GU_LINEAR_MIPMAP_LINEAR;
 			} else {
-				materials[mat_id].filter_mag=GU_LINEAR;
+				materials[mat_id].filter_min=GU_LINEAR;
 			}
 			break;
 		case 9984:
-			materials[mat_id].filter_mag=GU_NEAREST_MIPMAP_NEAREST;
+			materials[mat_id].filter_min=GU_NEAREST_MIPMAP_NEAREST;
 			break;
 		case 9985:
-			materials[mat_id].filter_mag=GU_LINEAR_MIPMAP_NEAREST;
+			materials[mat_id].filter_min=GU_LINEAR_MIPMAP_NEAREST;
 			break;
 		case 9986:
-			materials[mat_id].filter_mag=GU_NEAREST_MIPMAP_LINEAR;
+			materials[mat_id].filter_min=GU_NEAREST_MIPMAP_LINEAR;
 			break;
 		case 9987:
-			materials[mat_id].filter_mag=GU_LINEAR_MIPMAP_LINEAR;
+			materials[mat_id].filter_min=GU_LINEAR_MIPMAP_LINEAR;
 			break;
 		default:
 			break;
@@ -591,6 +591,7 @@ void gaas_GLTF_internal_LoadMaterials(int mat_id, int miplevels) {
 	tempImageBuf=(char*)malloc(imageSize);
 	memcpy(tempImageBuf, &data->materials[mat_id].pbr_metallic_roughness.base_color_texture.texture->image->buffer_view->buffer->data[imageOffset], imageSize);
 	materials[mat_id].tex = gaasIMAGELoadImageMipmapFromBuffer(tempImageBuf, imageSize, 1, miplevels);
+	gaasIMAGEMoveMipmapToVram(materials[mat_id].tex);
 
 	free(tempImageBuf);
 }
@@ -703,7 +704,6 @@ void gaas_GLTF_internal_LoadNodes(int node_id) {
 
 void gaasGLTFLoad(const char* file, int miplevels, int fileoffset, int filesize, int overwriteColor, unsigned int newColor) {
     //init cgltf
-	printf("free memory: %d bytes, %d kb, %d mb\n", iGetFreeMemory(), iGetFreeMemory()/1000, iGetFreeMemory()/1000000);
     cgltf_options options = {0};
 	cgltf_result result = cgltf_parse_file(&options, file, &data, fileoffset, filesize);
 	if (result == cgltf_result_success) {
@@ -750,6 +750,7 @@ void gaasGLTFLoad(const char* file, int miplevels, int fileoffset, int filesize,
 	}
 
     cgltf_free(data);
+	printf("free memory after glTF load: %d bytes, %d kb, %d mb\n", iGetFreeMemory(), iGetFreeMemory()/1000, iGetFreeMemory()/1000000);
 }
 
 int TotRenderLists;
@@ -887,7 +888,7 @@ void gaasGLTFRender(int selectRender, int selectCamera, int usebb, int debugNode
 			/* if(materials[matid].unlit==1) {
 				sceGuDisable(GU_LIGHTING);
 			} */
-
+			
 			gaasGFXTextureMip(materials[matid].tex, materials[matid].filter_min, materials[matid].filter_mag, materials[matid].repeat_u, materials[matid].repeat_v, GU_TFX_MODULATE, GU_TEXTURE_AUTO, 0.75);
 		} else {
 			printf("Invalid texture data in Material %d %s\n", matid, materials[matid].name);

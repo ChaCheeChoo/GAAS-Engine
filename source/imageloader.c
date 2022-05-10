@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pspkernel.h>
+#include <vram.h>
 
 #include "imageloader.h"
 
@@ -60,10 +61,10 @@ gaasImage* ImageCreate(int w, int h) {
     tex->w = w;
     tex->h = h;
     tex->swizzled = 0;
+    tex->vram = 0;
 
     tex->data = malloc(tex->tw * tex->th * sizeof(gaasColor));
-    if (tex->data == NULL)
-    {
+    if (tex->data == NULL) {
         free(tex);
         return NULL;
     }
@@ -249,7 +250,11 @@ void gaasIMAGEFree(gaasImage *tex) {
         return;
     }
 
-    free(tex->data);
+    if(tex->vram==0) {
+        free(tex->data);
+    } else {
+        vfree(tex->data);
+    }
     free(tex);
 
     tex = NULL;
@@ -420,6 +425,37 @@ gaasImageMipmap* gaasIMAGELoadImageMipmapFromBuffer(unsigned char *buffer, int s
     }
 
     return tex;
+}
+
+void gaasIMAGEMoveToVram(gaasImage* source) {
+    if (source == NULL) {
+        return;
+    }
+
+    int texSize = source->tw*source->h*sizeof(gaasColor);
+    void* dest = valloc(texSize);
+    memcpy((gaasColor)dest|0x40000000, source->data, texSize);
+    free(source->data);
+
+    if(dest>0x4200000) {
+        printf("image allocated outside vram, making the vram transfer redundent\n");
+    }
+
+    printf("VRam used: 0x%x | %u bytes  %u kb\n", dest-0x4000000+texSize, (unsigned int)(dest-0x4000000+texSize), (unsigned int)(dest-0x4000000+texSize)/1000);
+    source->vram = 1;
+    source->data = dest;
+}
+
+void gaasIMAGEMoveMipmapToVram(gaasImageMipmap* source) {
+    if (source == NULL) {
+        return;
+    }
+
+    for(int i=0; i<source->levels; i++) {
+        if(source->image[i]!=NULL) {
+            gaasIMAGEMoveToVram(source->image[i]);
+        }
+    }
 }
 
 void gaasIMAGESavePNG(const char* filename, gaasColor* data, int width, int height, int lineSize, int saveAlpha) {

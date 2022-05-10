@@ -23,8 +23,14 @@ const void* zbp;
 /**
  * initializes GU for 3d and 2d rendering
  * keep in mind you can manually change the settings after initialization
+ * PixelSize - used to calculate vram needed for framebuffer
+ * 	corresponds to Psm
+ * 	GU_PSM_4444 - 2
+ * 	GU_PSM_5650 - 2
+ * 	GU_PSM_5551 - 2
+ * 	GU_PSM_8888 - 4
 **/
-void gaasGFXInit();
+void gaasGFXInit(int PixelSize, int Psm);
 
 /**
  * Draws an animated sprite on screen using a sprite sheet

@@ -59,7 +59,7 @@ static int seekChunk(int fd, int size, u32 id) {
 }
 
 gaasWAVSound* gaasWAVLoad(const char *file, int priority, int usesoffset, int fileoffset) {
-    FILE* fd = fopen(file, "rw");
+    FILE* fd = fopen(file, "rb");
 	gaasWAVSound* temp = (gaasWAVSound*)malloc(sizeof(gaasWAVSound));
 
 	if(usesoffset==1) {

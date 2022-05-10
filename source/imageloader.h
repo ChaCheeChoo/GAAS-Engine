@@ -9,8 +9,9 @@ typedef struct {
     int th;             /**< Real texture height. A power of two. */
     int w;              /**< Texture width, as seen when drawing. */
     int h;              /**< Texture height, as seen when drawing. */
-    int swizzled;      /**< Is the texture swizzled ? */
-    gaasColor *data;     /**< Pointer to raw data. */
+    int swizzled;       /**< Is the texture swizzled ? */
+    int vram;           /**< Is the texture located in vram ? */
+    gaasColor *data;    /**< Pointer to raw data. */
 } gaasImage;
 
 typedef struct {
@@ -90,5 +91,17 @@ gaasImageMipmap* gaasIMAGELoadImageMipmapFromBuffer(unsigned char *buffer, int s
  * saveAlpha - flag that determines if image includes alpha data or not
 **/
 void gaasIMAGESavePNG(const char* filename, gaasColor* data, int width, int height, int lineSize, int saveAlpha);
+
+/**
+ * moves given image to vram
+ * there's a bug where the first texture you upload to vram will be corrupted
+ * currently the only way to mitigate this is by uploading a sacrificial texture that's 64x64 or bigger in size
+**/
+void gaasIMAGEMoveToVram(gaasImage* source);
+
+/**
+ * moves given mipmap to vram
+**/
+void gaasIMAGEMoveMipmapToVram(gaasImageMipmap* source);
 
 #endif

@@ -1,6 +1,7 @@
 #include <pspgu.h>
 #include <pspgum.h>
 #include <stdio.h>
+#include <vram.h>
 
 #include "imageloader.h"
 #include "graphics.h"
@@ -10,17 +11,24 @@
 #define SCR_HEIGHT (272)
 #define PIXEL_SIZE (4) /* change this if you change to another screenmode */
 #define FRAME_SIZE (BUF_WIDTH * SCR_HEIGHT * PIXEL_SIZE)
-#define ZBUF_SIZE (BUF_WIDTH SCR_HEIGHT * 2) /* zbuffer seems to be 16-bit? */
+#define ZBUF_SIZE (BUF_WIDTH * SCR_HEIGHT * 2) /* zbuffer seems to be 16-bit? */
 
-void gaasGFXInit() {
-	fbp0 = gaasVRAMGetStaticVramBuffer(BUF_WIDTH,SCR_HEIGHT,GU_PSM_8888);
+void gaasGFXInit(int PixelSize, int Psm) {
+	/* fbp0 = gaasVRAMGetStaticVramBuffer(BUF_WIDTH,SCR_HEIGHT,GU_PSM_8888);
 	fbp1 = gaasVRAMGetStaticVramBuffer(BUF_WIDTH,SCR_HEIGHT,GU_PSM_8888);
-	zbp = gaasVRAMGetStaticVramBuffer(BUF_WIDTH,SCR_HEIGHT,GU_PSM_4444);
+	zbp = gaasVRAMGetStaticVramBuffer(BUF_WIDTH,SCR_HEIGHT,GU_PSM_4444); */
+	int frameBufferSize = PixelSize*BUF_WIDTH*SCR_HEIGHT;
+
+	fbp0 = valloc(frameBufferSize)-0x4000000;
+	fbp1 = valloc(frameBufferSize)-0x4000000;
+	zbp = valloc(ZBUF_SIZE)-0x4000000;
+
+	printf("fbp0: 0x%x  fbp1: 0x%x  zbp: 0x%x\n", fbp0, fbp1, zbp);
 
 	sceGuInit();
     sceGuStart(GU_DIRECT,DisplayList);
 
-    sceGuDrawBuffer(GU_PSM_8888,fbp0,BUF_WIDTH);
+    sceGuDrawBuffer(Psm,fbp0,BUF_WIDTH);
     sceGuDispBuffer(SCR_WIDTH,SCR_HEIGHT,fbp1,BUF_WIDTH);
     sceGuDepthBuffer(zbp,BUF_WIDTH);
 
