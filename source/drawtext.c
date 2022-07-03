@@ -2,7 +2,7 @@
 #include <pspgum.h>
 #include <string.h>
 #include "drawtext.h"
-#include "font.c"
+#include "font.h"
 
 static int fontwidthtab[128] = {
 	10, 10, 10, 10, 

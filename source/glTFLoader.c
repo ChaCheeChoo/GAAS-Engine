@@ -624,46 +624,35 @@ void gaas_GLTF_internal_LoadNodes(int node_id) {
 		nodes[node_id].pos.z=0.0f;
 	}
 
-	if(data->nodes[node_id].has_rotation) {
+	if(data->nodes[node_id].has_rotation) { //fucking wack
 		nodes[node_id].hasAnyTransforms = 1;
-		ScePspFVector4 q;
-		q.x=data->nodes[node_id].rotation[0];
-		q.y=data->nodes[node_id].rotation[1];
-		q.z=data->nodes[node_id].rotation[2];
-		q.w=data->nodes[node_id].rotation[3];
 
-		double w2 = q.w*q.w;
-    	double x2 = q.x*q.x;
-    	double y2 = q.y*q.y;
-    	double z2 = q.z*q.z;
-    	double unitLength = w2 + x2 + y2 + z2;    // Normalised == 1, otherwise correction divisor.
-    	double abcd = q.w*q.x + q.y*q.z;
-    	double eps = 1e-7;    // TODO: pick from your math lib instead of hardcoding.
-    	double pi = GU_PI;   // TODO: pick from your math lib instead of hardcoding.
-    	if (abcd > (0.5-eps)*unitLength) {
-    	    nodes[node_id].rot.y=2 * atan2f(q.y, q.w);//yaw
-    	    nodes[node_id].rot.z = pi;//pitch
-    	    nodes[node_id].rot.x=0; //roll
-    	} else if (abcd < (-0.5+eps)*unitLength) {
-    	    nodes[node_id].rot.y=-2 * atan2f(q.y, q.w);//yaw
-    	    nodes[node_id].rot.z = -pi;//pitch
-    	    nodes[node_id].rot.x= 0;//roll
-    	} else {
-    	    double adbc = q.w*q.z - q.x*q.y;
-    	    double acbd = q.w*q.y - q.x*q.z;
-    	    nodes[node_id].rot.y=atan2f(2*adbc, 1 - 2*(z2+x2));//yaw
-    	    nodes[node_id].rot.z=asinf(2*abcd/unitLength);//pitch
-    	    nodes[node_id].rot.x=atan2f(2*acbd, 1 - 2*(y2+x2));//roll
+		ScePspFVector4 q;
+		q.x = data->nodes[node_id].rotation[0];
+		q.y = data->nodes[node_id].rotation[1];
+		q.z = data->nodes[node_id].rotation[2];
+		q.w = data->nodes[node_id].rotation[3];
+
+		float unit = (q.x * q.x) + (q.y * q.y) + (q.z * q.z) + (q.w * q.w);
+
+    	// this will have a magnitude of 0.5 or greater if and only if this is a singularity case
+    	float test = q.x * q.w - q.y * q.z;
+
+    	if (test > 0.4995f * unit) { // singularity at north pole
+    	    nodes[node_id].rot.x = GU_PI / 2;
+    	    nodes[node_id].rot.y = 2.0f * atan2(q.y, q.x);
+    	    nodes[node_id].rot.z = 0;
+    	} else if (test < -0.4995f * unit) { // singularity at south pole
+    	    nodes[node_id].rot.x = GU_PI / 2;
+    	    nodes[node_id].rot.y = -2.0f * atan2(q.y, q.x);
+    	    nodes[node_id].rot.z = 0;
+    	} else { // no singularity - this is the majority of cases
+    	    nodes[node_id].rot.x = asin(2.0f * (q.w * q.x - q.y * q.z));
+    	    nodes[node_id].rot.y = atan2(2.0f * q.w * q.y + 2.0f * q.z * q.x, 1 - 2.0f * (q.x * q.x + q.y * q.y));
+    	    nodes[node_id].rot.z = atan2(2.0f * q.w * q.z + 2.0f * q.x * q.y, 1 - 2.0f * (q.z * q.z + q.x * q.x));
     	}
 
-		//convert quaternion to euler, because fuck me we're not doing this at runtime, fuck that
-		//also this isn't even vfpu optimized so doing this at runtime makes even less sense
-		/* nodes[node_id].rot.z=atan2f(2.f*(quatAngles.w*quatAngles.x+quatAngles.y*quatAngles.z), 1.f-2.f*(quatAngles.x*quatAngles.x+quatAngles.y*quatAngles.y));//roll
-		nodes[node_id].rot.x=asinf(2.f*(quatAngles.w*quatAngles.y+quatAngles.x*quatAngles.z));//pitch
-		nodes[node_id].rot.y=atan2f(2.f*(quatAngles.w*quatAngles.z+quatAngles.x*quatAngles.y), 1.f-2.f*(quatAngles.y*quatAngles.y+quatAngles.z*quatAngles.z));//yaw */
-		/* nodes[node_id].rot.x=0.0f;
-		nodes[node_id].rot.y=0.0f;
-		nodes[node_id].rot.z=0.0f; */
+		//printf("rotate my balls %f %f %f\n", nodes[node_id].rot.x, nodes[node_id].rot.y, nodes[node_id].rot.z);
 	} else {
 		nodes[node_id].rot.x=0.0f;
 		nodes[node_id].rot.y=0.0f;
@@ -734,7 +723,6 @@ void gaasGLTFLoad(const char* file, int miplevels, int fileoffset, int filesize,
 	nodes=(struct Node*)calloc(sizeof(struct Node), TotalNodes);
 	meshes=(struct Mesh*)calloc(sizeof(struct Mesh), TotalMeshes);//create mesh array
 	materials=(struct Material*)calloc(sizeof(struct Material), TotalMaterials);
-	//printf("free memory after mesh array: %d bytes, %d kb, %d mb\n", iGetFreeMemory(), iGetFreeMemory()/1000, iGetFreeMemory()/1000000);
 
 	//load materials into overall array
 	for(int i=0; i<TotalMaterials; i++) {
@@ -750,7 +738,6 @@ void gaasGLTFLoad(const char* file, int miplevels, int fileoffset, int filesize,
 	}
 
     cgltf_free(data);
-	printf("free memory after glTF load: %d bytes, %d kb, %d mb\n", iGetFreeMemory(), iGetFreeMemory()/1000, iGetFreeMemory()/1000000);
 }
 
 int TotRenderLists;
@@ -872,7 +859,7 @@ void gaasGLTFRender(int selectRender, int selectCamera, int usebb, int debugNode
 		sceGumMatrixMode(GU_MODEL);
 		{
 			ScePspFVector3 pos = {nodes[shortcut].pos.x, nodes[shortcut].pos.y, nodes[shortcut].pos.z};
-			ScePspFVector3 rot = {nodes[shortcut].rot.x, nodes[shortcut].rot.x, nodes[shortcut].rot.x};
+			ScePspFVector3 rot = {nodes[shortcut].rot.x, nodes[shortcut].rot.y, nodes[shortcut].rot.z};
 			ScePspFVector3 scl = {nodes[shortcut].scl.x, nodes[shortcut].scl.y, nodes[shortcut].scl.z};
 
 			sceGumLoadIdentity();

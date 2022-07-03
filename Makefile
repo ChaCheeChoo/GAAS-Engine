@@ -2,9 +2,9 @@ PSPSDK	= $(shell psp-config --pspsdk-path)
 
 TARGET_LIB = ./build/lib/libgaas.a
 
-OBJS		= source/vram.o source/font.c source/imageloader.o source/callback.o source/lighting.o\
+OBJS		= source/vram.o source/imageloader.o source/callback.o source/lighting.o source/gwdloader.o\
 				source/drawtext.o source/graphics.o source/mp3audio.o source/common.o source/objloader.o\
-				source/ctrl.o source/collision.o source/wavaudio.o source/gwd.o source/glTFLoader.o\
+				source/ctrl.o source/collision.o source/wavaudio.o source/glTFLoader.o\
 
 INCDIR		= 
 CFLAGS		= -O2 -G0 -Wall
@@ -19,8 +19,11 @@ LDFLAGS	=
 
 include $(PSPSDK)/lib/build.mak
 
-font.c : font.raw
-	bin2c font.raw source/font.c Font
+font.h : font.rgba
+	bin2c font.rgba source/font.h Font
+
+fallback.h : fallback.rgba
+	bin2c fallback.rgba source/fallback.h Fallback
 
 all2:
 ifeq (,$(wildcard ./build))
@@ -28,7 +31,8 @@ ifeq (,$(wildcard ./build))
 	mkdir ./build/lib
 	mkdir ./build/include
 endif
-	make font.c
+	make font.h
+	make fallback.h
 	cp ./source/*.h ./build/include/
 	make
 	cp ./build/include/*.h ./samples/common/

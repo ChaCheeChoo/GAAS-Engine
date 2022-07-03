@@ -1,7 +1,7 @@
 #ifndef IMAGELOADER
 #define IMAGELOADER
 
-typedef unsigned int gaasColor;
+typedef unsigned int gaasColor; 
 
 typedef struct {
     int format;

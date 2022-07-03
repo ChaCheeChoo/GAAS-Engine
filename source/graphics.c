@@ -5,6 +5,7 @@
 
 #include "imageloader.h"
 #include "graphics.h"
+#include "fallback.h"
 
 #define BUF_WIDTH (512)
 #define SCR_WIDTH (480)
@@ -13,10 +14,18 @@
 #define FRAME_SIZE (BUF_WIDTH * SCR_HEIGHT * PIXEL_SIZE)
 #define ZBUF_SIZE (BUF_WIDTH * SCR_HEIGHT * 2) /* zbuffer seems to be 16-bit? */
 
+void gaasGFXDrawFallbackTex() {
+	sceGuTexMode(GU_PSM_8888, 0, 0, 0);
+	sceGuTexImage(0, 64, 64, 64, Fallback);
+	sceGuTexFunc(GU_TFX_MODULATE, GU_TCC_RGBA);//GU_TFX_MODULATE GU_TFX_REPLACE
+	sceGuTexEnvColor(0x0);
+	sceGuTexOffset(0.0f, 0.0f);
+	sceGuTexScale(1.0f, 1.0f);
+	sceGuTexWrap(GU_REPEAT, GU_REPEAT);
+	sceGuTexFilter(GU_NEAREST, GU_NEAREST);
+}
+
 void gaasGFXInit(int PixelSize, int Psm) {
-	/* fbp0 = gaasVRAMGetStaticVramBuffer(BUF_WIDTH,SCR_HEIGHT,GU_PSM_8888);
-	fbp1 = gaasVRAMGetStaticVramBuffer(BUF_WIDTH,SCR_HEIGHT,GU_PSM_8888);
-	zbp = gaasVRAMGetStaticVramBuffer(BUF_WIDTH,SCR_HEIGHT,GU_PSM_4444); */
 	int frameBufferSize = PixelSize*BUF_WIDTH*SCR_HEIGHT;
 
 	fbp0 = valloc(frameBufferSize)-0x4000000;
@@ -82,14 +91,17 @@ void gaasGFXInit(int PixelSize, int Psm) {
 }
 
 void gaasGFXAnimatedSpriteAlpha(int collumns, int rows, int width, int height, gaasImage* source, int x, int y, int update) {
-	if(source==NULL) return;
-	sceGuTexFunc(GU_TFX_REPLACE,GU_TCC_RGBA);
-	sceGuTexMode(source->format, 0, 0, source->swizzled);
-	sceGuTexImage(0, source->tw, source->th, source->tw, source->data);
-	sceGuTexScale((float)1.0, (float)1.0);
-	sceGuTexWrap(GU_CLAMP, GU_CLAMP);
-	sceGuTexFilter(GU_NEAREST, GU_NEAREST);
-	sceGuDisable(GU_DEPTH_TEST);
+	if(source==NULL) {
+		gaasGFXDrawFallbackTex();
+	} else {
+		sceGuTexFunc(GU_TFX_REPLACE,GU_TCC_RGBA);
+		sceGuTexMode(source->format, 0, 0, source->swizzled);
+		sceGuTexImage(0, source->tw, source->th, source->tw, source->data);
+		sceGuTexScale((float)1.0, (float)1.0);
+		sceGuTexWrap(GU_CLAMP, GU_CLAMP);
+		sceGuTexFilter(GU_NEAREST, GU_NEAREST);
+		sceGuDisable(GU_DEPTH_TEST);
+	}
 	int j = 0;
 
 	static int up;
@@ -139,7 +151,10 @@ void gaasGFXAnimatedSpriteAlpha(int collumns, int rows, int width, int height, g
 }
 
 void gaasGFXTexture(gaasImage* source, int filter, int repeat, int tfx) {
-	if(source==NULL) return;
+	if(source==NULL) {
+		gaasGFXDrawFallbackTex();
+		return;
+	}
 	sceGuTexMode(source->format,0,0,source->swizzled);
 	sceGuTexImage(0, source->tw, source->th, source->tw, source->data);
 	sceGuTexWrap(repeat, repeat); 
@@ -150,7 +165,10 @@ void gaasGFXTexture(gaasImage* source, int filter, int repeat, int tfx) {
 }
 
 void gaasGFXTextureMip(gaasImageMipmap* source, int filter_min, int filter_mag, int repeat_u, int repeat_v, int tfx, int mode, float bias) {
-	if(source==NULL) return;
+	if(source==NULL) {
+		gaasGFXDrawFallbackTex();
+		return;
+	}
 	int levels=source->levels;
 
 	sceGuTexMode(source->image[0]->format,levels-1,0,source->image[0]->swizzled);
@@ -188,14 +206,17 @@ void gaasGFXFilledRect(int x, int y, int width, int height, unsigned int color) 
 }
 
 void gaasGFXSprite(int startx, int starty, int width, int height, gaasImage* source, int x, int y) {
-	if(source==NULL) return;
-	sceGuTexFunc(GU_TFX_REPLACE,GU_TCC_RGBA);
-	sceGuTexMode(source->format, 0, 0, source->swizzled);
-	sceGuTexImage(0, source->tw, source->th, source->tw, source->data);
-	sceGuTexFilter(GU_NEAREST, GU_NEAREST);
-	float u = 1.0f / ((float)source->tw);
-	float v = 1.0f / ((float)source->th);
-	sceGuTexScale(u, v);
+	if(source==NULL) {
+		gaasGFXDrawFallbackTex();
+	} else {
+		sceGuTexFunc(GU_TFX_REPLACE,GU_TCC_RGBA);
+		sceGuTexMode(source->format, 0, 0, source->swizzled);
+		sceGuTexImage(0, source->tw, source->th, source->tw, source->data);
+		sceGuTexFilter(GU_NEAREST, GU_NEAREST);
+		float u = 1.0f / ((float)source->tw);
+		float v = 1.0f / ((float)source->th);
+		sceGuTexScale(u, v);
+	}
 	
 	sceGuDisable(GU_DEPTH_TEST);
 	int j = 0;
@@ -224,14 +245,17 @@ void gaasGFXSprite(int startx, int starty, int width, int height, gaasImage* sou
 }
 
 void gaasGFXSpriteTinted(int startx, int starty, int width, int height, gaasImage* source, int x, int y, unsigned int tint) {
-	if(source==NULL) return;
-	sceGuTexFunc(GU_TFX_MODULATE,GU_TCC_RGBA);
-	sceGuTexMode(source->format, 0, 0, source->swizzled);
-	sceGuTexImage(0, source->tw, source->th, source->tw, source->data);
-	sceGuTexFilter(GU_NEAREST, GU_NEAREST);
-	float u = 1.0f / ((float)source->tw);
-	float v = 1.0f / ((float)source->th);
-	sceGuTexScale(u, v);
+	if(source==NULL) {
+		gaasGFXDrawFallbackTex();
+	} else {
+		sceGuTexFunc(GU_TFX_MODULATE,GU_TCC_RGBA);
+		sceGuTexMode(source->format, 0, 0, source->swizzled);
+		sceGuTexImage(0, source->tw, source->th, source->tw, source->data);
+		sceGuTexFilter(GU_NEAREST, GU_NEAREST);
+		float u = 1.0f / ((float)source->tw);
+		float v = 1.0f / ((float)source->th);
+		sceGuTexScale(u, v);
+	}
 	
 	sceGuDisable(GU_DEPTH_TEST);
 	int j = 0;
@@ -263,8 +287,10 @@ void gaasGFXSpriteTinted(int startx, int starty, int width, int height, gaasImag
 }
 
 void gaasGFXTextureScroller(gaasImage* source, float scrollx, float scrolly, float maxscroll, int filter, int repeat, int tfx) {
-	if(source==NULL) return;
-
+	if(source==NULL) {
+		gaasGFXDrawFallbackTex();
+		return;
+	}
 	static float scroll_prog_x;
 	static float scroll_prog_y;
 
@@ -349,7 +375,6 @@ void gaasGFXRenderTargetTexture(Texture* texture, int filter, int repeat, int tf
 }
 
 void gaasGFXBillboard(ScePspFVector3 pos, gaasImage* source, float scale, unsigned int color, ScePspFMatrix4 viewMatrix) {
-	if(source==NULL) return;
 	struct Vertex {
 		float u,v;
 		unsigned int color;
@@ -406,20 +431,27 @@ void gaasGFXBillboard(ScePspFVector3 pos, gaasImage* source, float scale, unsign
 
 		sceGumFullInverse();
 	}
-	
-	sceGuTexMode(source->format,0,0,source->swizzled);
-	sceGuTexImage(0, source->tw, source->th, source->tw, source->data);
-	sceGuTexWrap(GU_REPEAT, GU_REPEAT);
-	sceGuTexFunc(GU_TFX_ADD,GU_TCC_RGBA);
-	sceGuTexFilter(GU_LINEAR,GU_LINEAR);
-	sceGuTexScale(1.0f, 1.0f);
-	sceGuTexOffset(0.0f,0.0f);
+
+	if(source==NULL) {
+		gaasGFXDrawFallbackTex();
+	} else {
+		sceGuTexMode(source->format,0,0,source->swizzled);
+		sceGuTexImage(0, source->tw, source->th, source->tw, source->data);
+		sceGuTexWrap(GU_REPEAT, GU_REPEAT);
+		sceGuTexFunc(GU_TFX_ADD,GU_TCC_RGBA);
+		sceGuTexFilter(GU_LINEAR,GU_LINEAR);
+		sceGuTexScale(1.0f, 1.0f);
+		sceGuTexOffset(0.0f,0.0f);
+	}
 	
 	sceGumDrawArray(GU_TRIANGLE_STRIP,GU_TEXTURE_32BITF|GU_COLOR_8888|GU_VERTEX_32BITF|GU_TRANSFORM_3D,4,0,billboard);
 }
 
 void gaasGFXAnimatedBillboard(ScePspFVector3 pos, gaasImage* source, int collumns, int rows, float scale, unsigned int color, ScePspFMatrix4 viewMatrix, float update) {
-	if(source==NULL) return;
+	if(source==NULL) {
+		gaasGFXDrawFallbackTex();
+		return;
+	}
 	struct Vertex {
 		float u,v;
 		unsigned int color;
