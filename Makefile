@@ -4,7 +4,7 @@ TARGET_LIB = ./build/lib/libgaas.a
 
 OBJS		= source/vram.o source/imageloader.o source/callback.o source/lighting.o source/gwdloader.o\
 				source/drawtext.o source/graphics.o source/mp3audio.o source/common.o source/objloader.o\
-				source/ctrl.o source/collision.o source/wavaudio.o source/glTFLoader.o\
+				source/ctrl.o source/collision.o source/wavaudio.o source/glTFLoader.o source/lodepng/lodepng.o\
 
 INCDIR		= 
 CFLAGS		= -O2 -G0 -Wall

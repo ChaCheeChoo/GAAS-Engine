@@ -1,6 +1,133 @@
 #ifndef GLTFLOADER
 #define GLTFLOADER
 
+#include <psptypes.h>
+#include "imageloader.h"
+
+typedef struct Vector4UnsignedShort {
+	unsigned short x;
+	unsigned short y;
+	unsigned short z;
+	unsigned short w;
+} Vector4UnsignedShort;
+
+static struct BBox {
+	float x,y,z;
+};
+
+enum INTERPOLATION_TYPE {
+	interpolation_type_linear,
+	interpolation_type_step,
+	interpolation_type_cubic_spline,
+};
+
+enum ANIMATION_TYPE {
+	animation_path_type_invalid,
+	animation_path_type_translation,
+	animation_path_type_rotation,
+	animation_path_type_scale,
+	animation_path_type_weights,
+};
+
+//different types of vertex structures
+struct UVColorNormalVertex {
+    float u, v;
+	unsigned int color;
+	float nx, ny, nz;
+	float x, y, z;
+};
+
+struct UVNormalVertex {
+    float u, v;
+	float nx, ny, nz;
+	float x, y, z;
+};
+
+struct UVColorVertex {
+    float u, v;
+	unsigned int color;
+	float x, y, z;
+};
+
+struct UVVertex {
+    float u, v;
+	float x, y, z;
+};
+
+struct AnimChannel {
+	int nodeID;
+	int animType;
+	int inputCount;
+	float* input;
+	int outputCount;
+	ScePspFVector3* output;
+	int interpolationType;
+};
+
+//node struct; an array of these will be generated
+struct Node {
+	char name[256];
+	int hasAnyTransforms;
+	ScePspFVector3 pos;
+	ScePspFVector3 rot;
+	ScePspFVector3 scl;
+	ScePspFMatrix4 matrix;
+	ScePspFMatrix4 parentMatrix;
+	int animId;
+	int totChannels;
+	int meshId;
+};
+
+//material struct; an array of these will be generated; referenced by mesh via ID
+struct Material {
+	char name[256]; //limited because making it a pointer and allocating causes crash
+	int repeat_u, repeat_v;
+	int filter_min, filter_mag;
+	int unlit;
+	int doubleSided;
+	int alphaMode;
+	gaasImageMipmap* tex;
+};
+
+struct Animation {
+	int totalChan;
+	struct AnimChannel* channels;
+};
+
+//mesh struct; an array of these will be generated using the mesh_count of scene; referenced by node via ID
+struct Mesh {
+	char name[256]; //limited because making it a pointer and allocating causes crash
+	int prim;
+	int vtype;
+	int vertCount;
+	int meshType;
+	int matId;
+	struct UVColorNormalVertex* UVColorNormalMesh;
+	struct UVNormalVertex* UVNormalMesh;
+	struct UVColorVertex* UVColorMesh;
+	struct UVVertex* UVMesh;
+	unsigned short* indices;
+	struct BBox bbox[8];
+	float min[3];
+	float max[3];
+};
+
+typedef struct gaasGLTF {
+    int TotRenderLists;
+    int RenderListValid;
+    int* RenderList[32];
+    float currentTime;
+    int currentFrame;
+    unsigned int TotalMeshes;
+    unsigned int TotalNodes;
+    unsigned int TotalMaterials;
+    unsigned int TotalAnims;
+    struct Node* nodes;
+    struct Mesh* meshes;
+    struct Material* materials;
+    struct Animation* animations;
+} gaasGLTF;
+
 /**
  * Loads glTF scene
  * file - file to load, either .gltf/.glb or your game eboot if using gwd
@@ -9,7 +136,7 @@
  * filesize - if using gwd set using gaasGWDGetSizeFromName, else set to 0
  * overwriteColor - flag to overwrite vertex color in scene, if 1 then newColor will be used
 **/
-void gaasGLTFLoad(const char* file, int miplevels, int fileoffset, int filesize, int overwriteColor, unsigned int newColor);
+gaasGLTF* gaasGLTFLoad(const char* file, int miplevels, int fileoffset, int filesize, int overwriteColor, unsigned int newColor);
 
 /**
  * render lists are used for selective rendering
@@ -31,8 +158,10 @@ void gaasGLTFLoad(const char* file, int miplevels, int fileoffset, int filesize,
  *      node 1 0 ExampleObject_04
  *      node 1 1 ExampleObject_05
  *      
+ * 
+ * INFO: the last node in the first chunk will fail to render if only one chunk is present
 **/
-void gaasGLTFLoadRenderList(const char* file, int offset, int size);
+void gaasGLTFLoadRenderList(gaasGLTF* scene, const char* file, int offset, int size);
 
 /**
  * Render glTF scene
@@ -44,11 +173,11 @@ void gaasGLTFLoadRenderList(const char* file, int offset, int size);
  * debugNode - will highlight and render the name of the object matching the supplied value
  *      pass in -1 for normal rendering
 **/
-void gaasGLTFRender(int selectRender, int selectCamera, int usebb, int debugNode);
+void gaasGLTFRender(gaasGLTF* scene, int selectRender, int selectCamera, int usebb, int debugNode);
 
 /**
  * Deletes scene from memory
 **/
-void gaasGLTFFree();
+void gaasGLTFFree(gaasGLTF* scene);
 
 #endif

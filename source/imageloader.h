@@ -104,4 +104,6 @@ void gaasIMAGEMoveToVram(gaasImage* source);
 **/
 void gaasIMAGEMoveMipmapToVram(gaasImageMipmap* source);
 
+void gaasIMAGEWritePNG(gaasImage* source, const char* out);
+
 #endif

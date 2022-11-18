@@ -1,11 +1,14 @@
+/* if something breakes it's almost always the image loader
+anytime any part of the engine gets modified in any way there's a solid 5% chance the image loader will break 
+I hate png's with a seething passion but aparently no one ever tried shoving a .tga into a gltf file because lmao*/
 #include <pspgu.h>
 #include <stdio.h>
-#include <png.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pspkernel.h>
 #include <vram.h>
 
+#include "lodepng/lodepng.h"
 #include "imageloader.h"
 
 //internal functions
@@ -74,203 +77,62 @@ gaasImage* ImageCreate(int w, int h) {
     return tex;
 }
 
-//static void *debugbuffer;
+static void *debugbuffer;
+static char* anotherTempBuffer;
 
 //load png from file
 gaasImage* LoadPNG(const char* file, int usesoffset, int offset, int filesize) {
+    unsigned error;
     FILE* fp;
-    //FILE* debug;
 
-    fp = fopen(file, "rb");
+    gaasImage *tex = NULL;
+    unsigned char* tempImage = 0;
+    unsigned tempWidth, tempHeight;
 
-    if(!fp) {
-        printf("failed to load png\n");
-        return NULL;
-    }
-
-    if(usesoffset==1) {
-        fseek(fp, offset, SEEK_SET);
-    }
-
-    /* debug = fopen("./out.png", "wb");
-
-    printf("pos fp: %d  debug: %d  %d\n", ftell(fp), ftell(debug), filesize);
-
-    debugbuffer = malloc(filesize);
-
-    fread(debugbuffer, filesize, 1, fp);
-    fwrite(debugbuffer, filesize, 1, debug);
-
-    fclose(debug);
-    free(debugbuffer); */
-
-    png_structp png_ptr;
-    static png_infop info_ptr;
-    unsigned int sig_read = 0;
-    png_uint_32 width, height;
-    int bit_depth, color_type, interlace_type;
-    u32 x, y;
-    gaasColor *line;
-    gaasImage *tex;
-
-    png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL); 
-    if (png_ptr == NULL) {
-        printf("png_ptr fucked\n");
-        return NULL;
-    }
-    png_set_error_fn(png_ptr, NULL, NULL, NULL);
-
-    info_ptr = png_create_info_struct(png_ptr); 
-    if (info_ptr == NULL) {
-        png_destroy_read_struct(&png_ptr, NULL, NULL);
-        printf("info_ptr fucked\n");
-        return NULL;
-    }
-
-    //ignores CRC errors, for some reason completely valid png files have CRC errors after the GWD system was rewritten
-    //mind you it's not the code inside the GWD system that causes issues
-    //just the mere existence of that system causes errors
-    png_set_crc_action(png_ptr, PNG_CRC_QUIET_USE, PNG_CRC_QUIET_USE);
-
-    if (setjmp(png_jmpbuf(png_ptr))) {
-        printf("%d %d %d %d %d\n", width, height, bit_depth, color_type, interlace_type);
-        printf("Image loader fucked\n\n");
-        png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-        fclose(fp);
-        return NULL;
-    }
-
-    png_init_io(png_ptr, fp); //load from file
-
-    png_set_sig_bytes(png_ptr, sig_read);
-    png_read_info(png_ptr, info_ptr);
-    png_get_IHDR(png_ptr, info_ptr, &width, &height, &bit_depth, &color_type, &interlace_type, NULL, NULL);
-    /* height = png_get_image_height(png_ptr, info_ptr);
-    width = png_get_image_width(png_ptr, info_ptr);
-    bit_depth = png_get_bit_depth(png_ptr, info_ptr);
-    color_type = png_get_color_type(png_ptr, info_ptr);
-    interlace_type = png_get_interlace_type(png_ptr, info_ptr); */
-    png_set_strip_16(png_ptr);
-    png_set_packing(png_ptr);
-
-    if (color_type == PNG_COLOR_TYPE_PALETTE) {
-        png_set_palette_to_rgb(png_ptr);
-    }
-
-    if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) {
-        png_set_tRNS_to_alpha(png_ptr);
-    }
-
-    png_set_filler(png_ptr, 0xff, PNG_FILLER_AFTER);
-    
-    tex = ImageCreate(width, height);
-    line = malloc(width * 4);
-
-    for (y = 0; y < height; y++) {
-        png_read_row(png_ptr, (u8*) line, NULL);
-        
-        for (x = 0; x < width; x++) {
-            tex->data[x + y*tex->tw] = line[x];
+    if(usesoffset==0) { //if loading from raw png file
+        error = lodepng_decode32_file(&tempImage, &tempWidth, &tempHeight, file);
+        if(error) {
+            printf("error %u: %s\n", error, lodepng_error_text(error));
         }
+    } else { //if loading via GWD
+        fp = fopen(file, "rb");
+        fseek(fp, offset, SEEK_SET);
+        anotherTempBuffer = malloc(filesize);
+
+        fread(anotherTempBuffer, filesize, 1, fp);
+        fclose(fp);
+
+        error = lodepng_decode32(&tempImage, &tempWidth, &tempHeight, anotherTempBuffer, filesize);
+        if(error) {
+            printf("error %u: %s\n", error, lodepng_error_text(error));
+        }
+
+        free(anotherTempBuffer);
     }
 
-    free(line);
-    png_read_end(png_ptr, info_ptr);
-    png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+    tex = ImageCreate(tempWidth, tempHeight);
+    memcpy(tex->data, tempImage, tempWidth*tempHeight*4);
 
-    fclose(fp);
-
+    free(tempImage);
     return tex;
 }
 
-static char* anotherTempBuffer;
-static int readOffset = 0;
-
-void readMemCallback(png_structp png_ptr, png_bytep destination, png_size_t bytesToRead) {
-    memcpy((unsigned char*)destination, (char*)&anotherTempBuffer[readOffset], bytesToRead);
-    //printf("fuck 1  %d %d\n", bytesToRead, readOffset);
-    readOffset+=bytesToRead;
-}
-
 gaasImage* LoadPNGMemory(unsigned char *buffer, int size) {
-    const int PNG_SIG_BYTES = 8;
-    readOffset=PNG_SIG_BYTES;
-    char pngSignature[PNG_SIG_BYTES];
-    memcpy(pngSignature, buffer, PNG_SIG_BYTES * sizeof(char));
+    unsigned error;
 
-    anotherTempBuffer=(char*)malloc(size);
-    memcpy(anotherTempBuffer, buffer, size);
-    
-    if(!png_check_sig((png_bytep)pngSignature, PNG_SIG_BYTES)){
-        printf("png signature is fucked\n");
-        return NULL;
+    gaasImage *tex = NULL;
+    unsigned char* tempImage = 0;
+    unsigned tempWidth, tempHeight;
+
+    error = lodepng_decode32(&tempImage, &tempWidth, &tempHeight, buffer, size);
+    if(error) {
+        printf("error %u: %s\n", error, lodepng_error_text(error));
     }
 
-    png_structp png_ptr;
-    png_infop info_ptr;
-    png_uint_32 width, height;
-    int interlace_type, bit_depth, color_type;
-    u32 x, y;
-    gaasColor *line;
-    gaasImage *tex;
+    tex = ImageCreate(tempWidth, tempHeight);
+    memcpy(tex->data, tempImage, tempWidth*tempHeight*4);
 
-    png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-    if (png_ptr == NULL) {
-        printf("png_ptr fucked\n");
-        return NULL;
-    }
-    png_set_error_fn(png_ptr, NULL, NULL, NULL);
-    info_ptr = png_create_info_struct(png_ptr);
-    if (info_ptr == NULL) {
-        png_destroy_read_struct(&png_ptr, NULL, NULL);
-        printf("info_ptr fucked\n");
-        return NULL;
-    }
-
-    //ignores CRC errors, for some reason completely valid png files have CRC errors after the GWD system was rewritten
-    //mind you it's not the code inside the GWD system that causes issues
-    //just the mere existence of that system causes errors
-    png_set_crc_action(png_ptr, PNG_CRC_QUIET_USE, PNG_CRC_QUIET_USE);
-
-    if (setjmp(png_jmpbuf(png_ptr))) {
-        printf("Image loader fucked\n");
-        png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-        return NULL;
-    }
-
-    png_set_read_fn(png_ptr, (void*)&buffer, readMemCallback);//load from memory
-    png_set_sig_bytes(png_ptr, 8); 
-    png_read_info(png_ptr, info_ptr);
-    png_get_IHDR(png_ptr, info_ptr, &width, &height, &bit_depth, &color_type, &interlace_type, NULL, NULL);
-    png_set_strip_16(png_ptr);
-    png_set_packing(png_ptr);
-
-    if (color_type == PNG_COLOR_TYPE_PALETTE) {
-        png_set_palette_to_rgb(png_ptr);
-    }
-
-    if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) {
-        png_set_tRNS_to_alpha(png_ptr);
-    }
-
-    png_set_filler(png_ptr, 0xff, PNG_FILLER_AFTER);
-    
-    tex = ImageCreate(width, height);
-    line = malloc(width * 4);
-
-    for (y = 0; y < height; y++) {
-        png_read_row(png_ptr, (u8*) line, NULL);
-        
-        for (x = 0; x < width; x++) {
-            tex->data[x + y*tex->tw] = line[x];
-        }
-    }
-
-    free(line);
-    free(anotherTempBuffer);
-    png_read_end(png_ptr, info_ptr);
-    png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-
+    free(tempImage);
     return tex;
 }
 
@@ -504,49 +366,8 @@ void gaasIMAGEMoveMipmapToVram(gaasImageMipmap* source) {
     }
 }
 
-void gaasIMAGESavePNG(const char* filename, gaasColor* data, int width, int height, int lineSize, int saveAlpha) {
-	png_structp png_ptr;
-	png_infop info_ptr;
-	FILE* fp;
-	int i, x, y;
-	unsigned char* line;
+void gaasIMAGEWritePNG(gaasImage* source, const char* out) {
+    unsigned error = lodepng_encode32_file(out, source->data, source->w, source->h);
 
-    fp = fopen(filename, "wb");
-
-	if (fp == NULL) {
-        return;
-    }
-
-	png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-	if (!png_ptr) {
-        return;
-    }
-
-	info_ptr = png_create_info_struct(png_ptr);
-	if (!info_ptr) {
-		png_destroy_write_struct(&png_ptr, (png_infopp)NULL);
-		return;
-	}
-	png_init_io(png_ptr, fp);
-	png_set_IHDR(png_ptr, info_ptr, width, height, 8, saveAlpha ? PNG_COLOR_TYPE_RGBA : PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
-	png_write_info(png_ptr, info_ptr);
-	line = (unsigned char *) malloc(width * (saveAlpha ? 4 : 3));
-	for (y = 0; y < height; y++) {
-		for (i = 0, x = 0; x < width; x++) {
-			gaasColor color = data[x + y * lineSize];
-			unsigned char r = color & 0xff;
-			unsigned char g = (color >> 8) & 0xff;
-			unsigned char b = (color >> 16) & 0xff;
-			unsigned char a = saveAlpha ? (color >> 24) & 0xff : 0xff;
-			line[i++] = r;
-			line[i++] = g;
-			line[i++] = b;
-			if (saveAlpha) line[i++] = a;
-		}
-		png_write_row(png_ptr, line);
-	}
-	free(line);
-	png_write_end(png_ptr, info_ptr);
-	png_destroy_write_struct(&png_ptr, (png_infopp)NULL);
-	fclose(fp);
+    if(error) printf("error %u: %s\n", error, lodepng_error_text(error));
 }

@@ -29,20 +29,6 @@ static int count = -420;
 static int count_normal = -69;
 static int count_tex = -13;
 static int count_color = -37;
-static unsigned int TotalMeshes;
-static unsigned int TotalNodes;
-static unsigned int TotalMaterials;
-
-typedef struct Vector4UnsignedShort {
-	unsigned short x;
-	unsigned short y;
-	unsigned short z;
-	unsigned short w;
-} Vector4UnsignedShort;
-
-static struct BBox {
-	float x,y,z;
-};
 
 //temporary buffers used before data is written to main vertex list
 struct ScePspFVector2* temp_tex;
@@ -50,103 +36,35 @@ struct ScePspFVector3* temp_normal;
 struct ScePspFVector3* temp_pos;
 struct Vector4UnsignedShort* temp_color;
 
-//different types of vertex structures
-struct UVColorNormalVertex {
-    float u, v;
-	unsigned int color;
-	float nx, ny, nz;
-	float x, y, z;
-};
-
-struct UVNormalVertex {
-    float u, v;
-	float nx, ny, nz;
-	float x, y, z;
-};
-
-struct UVColorVertex {
-    float u, v;
-	unsigned int color;
-	float x, y, z;
-};
-
-struct UVVertex {
-    float u, v;
-	float x, y, z;
-};
-
-//node struct; an array of these will be generated
-struct Node {
-	char name[256];
-	int hasAnyTransforms;
-	ScePspFVector3 pos;
-	ScePspFVector3 rot;
-	ScePspFVector3 scl;
-	ScePspFMatrix4 matrix;
-	ScePspFMatrix4 parentMatrix;
-	int meshId;
-};
-
-//material struct; an array of these will be generated; referenced by mesh via ID
-struct Material {
-	char name[256]; //limited because making it a pointer and allocating causes crash
-	int repeat_u, repeat_v;
-	int filter_min, filter_mag;
-	int unlit;
-	int doubleSided;
-	int alphaMode;
-	gaasImageMipmap* tex;
-};
-
-//mesh struct; an array of these will be generated using the mesh_count of scene; referenced by node via ID
-struct Mesh {
-	char name[256]; //limited because making it a pointer and allocating causes crash
-	int prim;
-	int vtype;
-	int vertCount;
-	int meshType;
-	int matId;
-	struct UVColorNormalVertex* UVColorNormalMesh;
-	struct UVNormalVertex* UVNormalMesh;
-	struct UVColorVertex* UVColorMesh;
-	struct UVVertex* UVMesh;
-	unsigned short* indices;
-	struct BBox bbox[8];
-	float min[3];
-	float max[3];
-};
-
-struct Node* nodes;
-struct Mesh* meshes;
-struct Material* materials;
-
 void* tempImageBuf;
+
+static gaasGLTF* temp = NULL;
 
 void gaas_GLTF_internal_LoadMeshes(int mesh_id, int overwriteColor, unsigned int ColorToOverwriteWith) {
 	//decide what primitive type a mesh will use
 	switch (data->meshes->primitives->type) {
 	    case cgltf_primitive_type_points:
-	    	meshes[mesh_id].prim=GU_POINTS;
+	    	temp->meshes[mesh_id].prim=GU_POINTS;
 	    	break;
     
 	    case cgltf_primitive_type_lines:
-	    	meshes[mesh_id].prim=GU_LINES;
+	    	temp->meshes[mesh_id].prim=GU_LINES;
 	    	break;
 
 	    case cgltf_primitive_type_line_strip:
-	    	meshes[mesh_id].prim=GU_LINE_STRIP;
+	    	temp->meshes[mesh_id].prim=GU_LINE_STRIP;
 	    	break;
     
 	    case cgltf_primitive_type_triangles:
-	    	meshes[mesh_id].prim=GU_TRIANGLES;
+	    	temp->meshes[mesh_id].prim=GU_TRIANGLES;
 	    	break;
 
 	    case cgltf_primitive_type_triangle_strip:
-	    	meshes[mesh_id].prim=GU_TRIANGLE_STRIP;
+	    	temp->meshes[mesh_id].prim=GU_TRIANGLE_STRIP;
 	    	break;
     
 	    case cgltf_primitive_type_triangle_fan:
-	    	meshes[mesh_id].prim=GU_TRIANGLE_FAN;
+	    	temp->meshes[mesh_id].prim=GU_TRIANGLE_FAN;
 	    	break;
     
 	    default:
@@ -184,40 +102,40 @@ void gaas_GLTF_internal_LoadMeshes(int mesh_id, int overwriteColor, unsigned int
 	}
 
 	//printf("pos: %d | tex: %d | normal: %d | color: %d\n", index_pos, index_tex, index_norm, index_color);
-	meshes[mesh_id].meshType = -1;//mesh types: 0 - UVColorNormalVertex; 1 - UVNormalVertex; 2 - UVColorVertex; 3 - UVVertex; -1 - invalid
+	temp->meshes[mesh_id].meshType = -1;//mesh types: 0 - UVColorNormalVertex; 1 - UVNormalVertex; 2 - UVColorVertex; 3 - UVVertex; -1 - invalid
 
 	//determine mesh type
 	if(index_pos!=-1 && index_tex!=-1 && index_norm!=-1 && index_color!=-1) {
-		meshes[mesh_id].meshType=0;//all data is present
+		temp->meshes[mesh_id].meshType=0;//all data is present
 	} else if(index_pos!=-1 && index_tex!=-1 && index_norm!=-1 && index_color==-1) {
-		meshes[mesh_id].meshType=1;//color data is missing
+		temp->meshes[mesh_id].meshType=1;//color data is missing
 	} else if(index_pos!=-1 && index_tex!=-1 && index_norm==-1 && index_color!=-1) {
-		meshes[mesh_id].meshType=2;//normal data is missing
+		temp->meshes[mesh_id].meshType=2;//normal data is missing
 	} else if(index_pos!=-1 && index_tex!=-1 && index_norm==-1 && index_color==-1) {
-		meshes[mesh_id].meshType=3;//both color and normal data is missing
+		temp->meshes[mesh_id].meshType=3;//both color and normal data is missing
 	} else {
-		meshes[mesh_id].meshType=-1;//invalid data
+		temp->meshes[mesh_id].meshType=-1;//invalid data
 		printf("Invalid data, unsupported vertex type|mesh: %d\n", mesh_id);
 	}
 
-	//printf("meshType: %d\n", meshes[mesh_id].meshType);
+	//printf("meshType: %d\n", temp->meshes[mesh_id].meshType);
 
 	//generate actual vtype data
-	switch (meshes[mesh_id].meshType) {
+	switch (temp->meshes[mesh_id].meshType) {
 		case 0:
-			meshes[mesh_id].vtype = GU_TEXTURE_32BITF|GU_COLOR_8888|GU_NORMAL_32BITF|GU_VERTEX_32BITF|GU_INDEX_16BIT|GU_TRANSFORM_3D;
+			temp->meshes[mesh_id].vtype = GU_TEXTURE_32BITF|GU_COLOR_8888|GU_NORMAL_32BITF|GU_VERTEX_32BITF|GU_INDEX_16BIT|GU_TRANSFORM_3D;
 			break;
 		
 		case 1:
-			meshes[mesh_id].vtype = GU_VERTEX_32BITF|GU_NORMAL_32BITF|GU_TEXTURE_32BITF|GU_INDEX_16BIT|GU_TRANSFORM_3D;
+			temp->meshes[mesh_id].vtype = GU_VERTEX_32BITF|GU_NORMAL_32BITF|GU_TEXTURE_32BITF|GU_INDEX_16BIT|GU_TRANSFORM_3D;
 			break;
 		
 		case 2:
-			meshes[mesh_id].vtype = GU_VERTEX_32BITF|GU_TEXTURE_32BITF|GU_COLOR_8888|GU_INDEX_16BIT|GU_TRANSFORM_3D;
+			temp->meshes[mesh_id].vtype = GU_VERTEX_32BITF|GU_TEXTURE_32BITF|GU_COLOR_8888|GU_INDEX_16BIT|GU_TRANSFORM_3D;
 			break;
 		
 		case 3:
-			meshes[mesh_id].vtype = GU_TEXTURE_32BITF|GU_VERTEX_32BITF|GU_INDEX_16BIT|GU_TRANSFORM_3D;
+			temp->meshes[mesh_id].vtype = GU_TEXTURE_32BITF|GU_VERTEX_32BITF|GU_INDEX_16BIT|GU_TRANSFORM_3D;
 			break;
 
 		default:
@@ -226,62 +144,62 @@ void gaas_GLTF_internal_LoadMeshes(int mesh_id, int overwriteColor, unsigned int
 	
 
     //gets number of vertices
-	meshes[mesh_id].vertCount = data->meshes[mesh_id].primitives->indices->count;
+	temp->meshes[mesh_id].vertCount = data->meshes[mesh_id].primitives->indices->count;
 	//meshes[mesh_id].name=(char*)malloc(sizeof(data->meshes[mesh_id].name));
-	strncpy(meshes[mesh_id].name, data->meshes[mesh_id].name, 255);
+	strncpy(temp->meshes[mesh_id].name, data->meshes[mesh_id].name, 255);
 	
 	if(data->meshes[mesh_id].primitives->attributes->data->has_min) {
-		meshes[mesh_id].min[0] = data->meshes[mesh_id].primitives->attributes[index_pos].data->min[0];
-		meshes[mesh_id].min[1] = data->meshes[mesh_id].primitives->attributes[index_pos].data->min[1];
-		meshes[mesh_id].min[2] = data->meshes[mesh_id].primitives->attributes[index_pos].data->min[2];
+		temp->meshes[mesh_id].min[0] = data->meshes[mesh_id].primitives->attributes[index_pos].data->min[0];
+		temp->meshes[mesh_id].min[1] = data->meshes[mesh_id].primitives->attributes[index_pos].data->min[1];
+		temp->meshes[mesh_id].min[2] = data->meshes[mesh_id].primitives->attributes[index_pos].data->min[2];
 	}
 	if(data->meshes[mesh_id].primitives->attributes->data->has_max) {
-		meshes[mesh_id].max[0] = data->meshes[mesh_id].primitives->attributes[index_pos].data->max[0];
-		meshes[mesh_id].max[1] = data->meshes[mesh_id].primitives->attributes[index_pos].data->max[1];
-		meshes[mesh_id].max[2] = data->meshes[mesh_id].primitives->attributes[index_pos].data->max[2];
+		temp->meshes[mesh_id].max[0] = data->meshes[mesh_id].primitives->attributes[index_pos].data->max[0];
+		temp->meshes[mesh_id].max[1] = data->meshes[mesh_id].primitives->attributes[index_pos].data->max[1];
+		temp->meshes[mesh_id].max[2] = data->meshes[mesh_id].primitives->attributes[index_pos].data->max[2];
 	}
 	if(data->meshes[mesh_id].primitives->attributes->data->has_min && data->meshes[mesh_id].primitives->attributes->data->has_max) {
-		meshes[mesh_id].bbox[0].x = meshes[mesh_id].min[0];
-		meshes[mesh_id].bbox[0].y = meshes[mesh_id].min[1];
-		meshes[mesh_id].bbox[0].z = meshes[mesh_id].min[2];
+		temp->meshes[mesh_id].bbox[0].x = temp->meshes[mesh_id].min[0];
+		temp->meshes[mesh_id].bbox[0].y = temp->meshes[mesh_id].min[1];
+		temp->meshes[mesh_id].bbox[0].z = temp->meshes[mesh_id].min[2];
 
-		meshes[mesh_id].bbox[1].x = meshes[mesh_id].max[0];
-		meshes[mesh_id].bbox[1].y = meshes[mesh_id].min[1];
-		meshes[mesh_id].bbox[1].z = meshes[mesh_id].min[2];
+		temp->meshes[mesh_id].bbox[1].x = temp->meshes[mesh_id].max[0];
+		temp->meshes[mesh_id].bbox[1].y = temp->meshes[mesh_id].min[1];
+		temp->meshes[mesh_id].bbox[1].z = temp->meshes[mesh_id].min[2];
 
-		meshes[mesh_id].bbox[2].x = meshes[mesh_id].min[0];
-		meshes[mesh_id].bbox[2].y = meshes[mesh_id].min[1];
-		meshes[mesh_id].bbox[2].z = meshes[mesh_id].max[2];
+		temp->meshes[mesh_id].bbox[2].x = temp->meshes[mesh_id].min[0];
+		temp->meshes[mesh_id].bbox[2].y = temp->meshes[mesh_id].min[1];
+		temp->meshes[mesh_id].bbox[2].z = temp->meshes[mesh_id].max[2];
 
-		meshes[mesh_id].bbox[3].x = meshes[mesh_id].max[0];
-		meshes[mesh_id].bbox[3].y = meshes[mesh_id].min[1];
-		meshes[mesh_id].bbox[3].z = meshes[mesh_id].max[2];
+		temp->meshes[mesh_id].bbox[3].x = temp->meshes[mesh_id].max[0];
+		temp->meshes[mesh_id].bbox[3].y = temp->meshes[mesh_id].min[1];
+		temp->meshes[mesh_id].bbox[3].z = temp->meshes[mesh_id].max[2];
 
 
-		meshes[mesh_id].bbox[4].x = meshes[mesh_id].min[0];
-		meshes[mesh_id].bbox[4].y = meshes[mesh_id].max[1];
-		meshes[mesh_id].bbox[4].z = meshes[mesh_id].min[2];
+		temp->meshes[mesh_id].bbox[4].x = temp->meshes[mesh_id].min[0];
+		temp->meshes[mesh_id].bbox[4].y = temp->meshes[mesh_id].max[1];
+		temp->meshes[mesh_id].bbox[4].z = temp->meshes[mesh_id].min[2];
 
-		meshes[mesh_id].bbox[5].x = meshes[mesh_id].max[0];
-		meshes[mesh_id].bbox[5].y = meshes[mesh_id].max[1];
-		meshes[mesh_id].bbox[5].z = meshes[mesh_id].min[2];
+		temp->meshes[mesh_id].bbox[5].x = temp->meshes[mesh_id].max[0];
+		temp->meshes[mesh_id].bbox[5].y = temp->meshes[mesh_id].max[1];
+		temp->meshes[mesh_id].bbox[5].z = temp->meshes[mesh_id].min[2];
 
-		meshes[mesh_id].bbox[6].x = meshes[mesh_id].min[0];
-		meshes[mesh_id].bbox[6].y = meshes[mesh_id].max[1];
-		meshes[mesh_id].bbox[6].z = meshes[mesh_id].max[2];
+		temp->meshes[mesh_id].bbox[6].x = temp->meshes[mesh_id].min[0];
+		temp->meshes[mesh_id].bbox[6].y = temp->meshes[mesh_id].max[1];
+		temp->meshes[mesh_id].bbox[6].z = temp->meshes[mesh_id].max[2];
 
-		meshes[mesh_id].bbox[7].x = meshes[mesh_id].max[0];
-		meshes[mesh_id].bbox[7].y = meshes[mesh_id].max[1];
-		meshes[mesh_id].bbox[7].z = meshes[mesh_id].max[2];
+		temp->meshes[mesh_id].bbox[7].x = temp->meshes[mesh_id].max[0];
+		temp->meshes[mesh_id].bbox[7].y = temp->meshes[mesh_id].max[1];
+		temp->meshes[mesh_id].bbox[7].z = temp->meshes[mesh_id].max[2];
 	}
 
 	//find matId because cgltf is a cunt that won't tell it to me directly
-	for(int i=0; i<TotalMaterials; i++) {
-		if(strcmp(materials[i].name, data->meshes[mesh_id].primitives->material->name)==0) {
-			meshes[mesh_id].matId=i;
+	for(int i=0; i<temp->TotalMaterials; i++) {
+		if(strcmp(temp->materials[i].name, data->meshes[mesh_id].primitives->material->name)==0) {
+			temp->meshes[mesh_id].matId=i;
 			break;
 		} else {
-			meshes[mesh_id].matId=-1;
+			temp->meshes[mesh_id].matId=-1;
 		}
 	}
 	//printf("Material in Mesh %d: %d\n", mesh_id, meshes[mesh_id].matId);
@@ -295,40 +213,40 @@ void gaas_GLTF_internal_LoadMeshes(int mesh_id, int overwriteColor, unsigned int
 	//printf("Test 1: %d %d %d %d\n", count, count_normal, count_tex, count_color);
 
     //allocate space for mesh depending on mesh type
-	switch (meshes[mesh_id].meshType) {
+	switch (temp->meshes[mesh_id].meshType) {
 		case 0:
 			//printf("Test 1.1: Allocating memory to mesh %d\n", mesh_id);
-			meshes[mesh_id].UVColorNormalMesh=(struct UVColorNormalVertex*)calloc(sizeof(struct UVColorNormalVertex), count);
-			meshes[mesh_id].UVNormalMesh=NULL;
-			meshes[mesh_id].UVColorMesh=NULL;
-			meshes[mesh_id].UVMesh=NULL;
+			temp->meshes[mesh_id].UVColorNormalMesh=(struct UVColorNormalVertex*)calloc(sizeof(struct UVColorNormalVertex), count);
+			temp->meshes[mesh_id].UVNormalMesh=NULL;
+			temp->meshes[mesh_id].UVColorMesh=NULL;
+			temp->meshes[mesh_id].UVMesh=NULL;
 			//printf("Test 1.2\n");
 			break;
 		
 		case 1:
 			//printf("Test 1.1: Allocating memory to mesh %d\n", mesh_id);
-			meshes[mesh_id].UVColorNormalMesh=NULL;
-			meshes[mesh_id].UVNormalMesh=(struct UVNormalVertex*)calloc(sizeof(struct UVNormalVertex), count);
-			meshes[mesh_id].UVColorMesh=NULL;
-			meshes[mesh_id].UVMesh=NULL;
+			temp->meshes[mesh_id].UVColorNormalMesh=NULL;
+			temp->meshes[mesh_id].UVNormalMesh=(struct UVNormalVertex*)calloc(sizeof(struct UVNormalVertex), count);
+			temp->meshes[mesh_id].UVColorMesh=NULL;
+			temp->meshes[mesh_id].UVMesh=NULL;
 			//printf("Test 1.2\n");
 			break;
 		
 		case 2:
 			//printf("Test 1.1: Allocating memory to mesh %d\n", mesh_id);
-			meshes[mesh_id].UVColorNormalMesh=NULL;
-			meshes[mesh_id].UVNormalMesh=NULL;
-			meshes[mesh_id].UVColorMesh=(struct UVColorVertex*)calloc(sizeof(struct UVColorVertex), count);
-			meshes[mesh_id].UVMesh=NULL;
+			temp->meshes[mesh_id].UVColorNormalMesh=NULL;
+			temp->meshes[mesh_id].UVNormalMesh=NULL;
+			temp->meshes[mesh_id].UVColorMesh=(struct UVColorVertex*)calloc(sizeof(struct UVColorVertex), count);
+			temp->meshes[mesh_id].UVMesh=NULL;
 			//printf("Test 1.2\n");
 			break;
 		
 		case 3:
 			//printf("Test 1.1: Allocating memory to mesh %d\n", mesh_id);
-			meshes[mesh_id].UVColorNormalMesh=NULL;
-			meshes[mesh_id].UVNormalMesh=NULL;
-			meshes[mesh_id].UVColorMesh=NULL;
-			meshes[mesh_id].UVMesh=(struct UVVertex*)calloc(sizeof(struct UVVertex), count);
+			temp->meshes[mesh_id].UVColorNormalMesh=NULL;
+			temp->meshes[mesh_id].UVNormalMesh=NULL;
+			temp->meshes[mesh_id].UVColorMesh=NULL;
+			temp->meshes[mesh_id].UVMesh=(struct UVVertex*)calloc(sizeof(struct UVVertex), count);
 			//printf("Test 1.2\n");
 			break;
 
@@ -369,11 +287,11 @@ void gaas_GLTF_internal_LoadMeshes(int mesh_id, int overwriteColor, unsigned int
 	//printf("Test 7\n");
 
 
-	switch (meshes[mesh_id].meshType) {
+	switch (temp->meshes[mesh_id].meshType) {
 		case 0:
 			for(int i=0; i<count_tex; i++) {
-				meshes[mesh_id].UVColorNormalMesh[i].u = temp_tex[i].x;
-				meshes[mesh_id].UVColorNormalMesh[i].v = temp_tex[i].y;
+				temp->meshes[mesh_id].UVColorNormalMesh[i].u = temp_tex[i].x;
+				temp->meshes[mesh_id].UVColorNormalMesh[i].v = temp_tex[i].y;
 			}
 			for(int i=0; i<count_color; i++) {
 				float tempXfloat = 0.0f;
@@ -402,45 +320,45 @@ void gaas_GLTF_internal_LoadMeshes(int mesh_id, int overwriteColor, unsigned int
 				}
 
 				if(overwriteColor==0) {
-					meshes[mesh_id].UVColorNormalMesh[i].color = GU_RGBA((int)tempXfloat, (int)tempYfloat, (int)tempZfloat, (int)tempWfloat);
+					temp->meshes[mesh_id].UVColorNormalMesh[i].color = GU_RGBA((int)tempXfloat, (int)tempYfloat, (int)tempZfloat, (int)tempWfloat);
 				} else {
-					meshes[mesh_id].UVColorNormalMesh[i].color = ColorToOverwriteWith;
+					temp->meshes[mesh_id].UVColorNormalMesh[i].color = ColorToOverwriteWith;
 				}
 				//printf("writing color: %d %d %d %d | %f %f %f %f | %x\n", temp_color[i].x, temp_color[i].y, temp_color[i].z, temp_color[i].w,  tempXfloat, tempYfloat, tempZfloat, tempWfloat,  meshes[mesh_id].UVColorNormalMesh[i].color);
 			}
 			for(int i=0; i<count_normal; i++) {
-				meshes[mesh_id].UVColorNormalMesh[i].nx = temp_normal[i].x;
-				meshes[mesh_id].UVColorNormalMesh[i].ny = temp_normal[i].y;
-				meshes[mesh_id].UVColorNormalMesh[i].nz = temp_normal[i].z;
+				temp->meshes[mesh_id].UVColorNormalMesh[i].nx = temp_normal[i].x;
+				temp->meshes[mesh_id].UVColorNormalMesh[i].ny = temp_normal[i].y;
+				temp->meshes[mesh_id].UVColorNormalMesh[i].nz = temp_normal[i].z;
 			}
 			for(int i=0; i<count; i++) {
-				meshes[mesh_id].UVColorNormalMesh[i].x = temp_pos[i].x;
-				meshes[mesh_id].UVColorNormalMesh[i].y = temp_pos[i].y;
-				meshes[mesh_id].UVColorNormalMesh[i].z = temp_pos[i].z;
+				temp->meshes[mesh_id].UVColorNormalMesh[i].x = temp_pos[i].x;
+				temp->meshes[mesh_id].UVColorNormalMesh[i].y = temp_pos[i].y;
+				temp->meshes[mesh_id].UVColorNormalMesh[i].z = temp_pos[i].z;
 			}
 			break;
 		
 		case 1:
 			for(int i=0; i<count_tex; i++) {
-				meshes[mesh_id].UVNormalMesh[i].u = temp_tex[i].x;
-				meshes[mesh_id].UVNormalMesh[i].v = temp_tex[i].y;
+				temp->meshes[mesh_id].UVNormalMesh[i].u = temp_tex[i].x;
+				temp->meshes[mesh_id].UVNormalMesh[i].v = temp_tex[i].y;
 			}
 			for(int i=0; i<count_normal; i++) {
-				meshes[mesh_id].UVNormalMesh[i].nx = temp_normal[i].x;
-				meshes[mesh_id].UVNormalMesh[i].ny = temp_normal[i].y;
-				meshes[mesh_id].UVNormalMesh[i].nz = temp_normal[i].z;
+				temp->meshes[mesh_id].UVNormalMesh[i].nx = temp_normal[i].x;
+				temp->meshes[mesh_id].UVNormalMesh[i].ny = temp_normal[i].y;
+				temp->meshes[mesh_id].UVNormalMesh[i].nz = temp_normal[i].z;
 			}
 			for(int i=0; i<count; i++) {
-				meshes[mesh_id].UVNormalMesh[i].x = temp_pos[i].x;
-				meshes[mesh_id].UVNormalMesh[i].y = temp_pos[i].y;
-				meshes[mesh_id].UVNormalMesh[i].z = temp_pos[i].z;
+				temp->meshes[mesh_id].UVNormalMesh[i].x = temp_pos[i].x;
+				temp->meshes[mesh_id].UVNormalMesh[i].y = temp_pos[i].y;
+				temp->meshes[mesh_id].UVNormalMesh[i].z = temp_pos[i].z;
 			}
 			break;
 		
 		case 2:
 			for(int i=0; i<count_tex; i++) {
-				meshes[mesh_id].UVColorMesh[i].u = temp_tex[i].x;
-				meshes[mesh_id].UVColorMesh[i].v = temp_tex[i].y;
+				temp->meshes[mesh_id].UVColorMesh[i].u = temp_tex[i].x;
+				temp->meshes[mesh_id].UVColorMesh[i].v = temp_tex[i].y;
 			}
 			for(int i=0; i<count_color; i++) {
 				float tempXfloat = 0.0f;
@@ -468,27 +386,27 @@ void gaas_GLTF_internal_LoadMeshes(int mesh_id, int overwriteColor, unsigned int
 					tempWfloat = 0.0f;
 				}
 				if(overwriteColor==0) {
-					meshes[mesh_id].UVColorMesh[i].color = GU_RGBA((int)tempXfloat, (int)tempYfloat, (int)tempZfloat, (int)tempWfloat);
+					temp->meshes[mesh_id].UVColorMesh[i].color = GU_RGBA((int)tempXfloat, (int)tempYfloat, (int)tempZfloat, (int)tempWfloat);
 				} else {
-					meshes[mesh_id].UVColorMesh[i].color = ColorToOverwriteWith;
+					temp->meshes[mesh_id].UVColorMesh[i].color = ColorToOverwriteWith;
 				}
 			}
 			for(int i=0; i<count; i++) {
-				meshes[mesh_id].UVColorMesh[i].x = temp_pos[i].x;
-				meshes[mesh_id].UVColorMesh[i].y = temp_pos[i].y;
-				meshes[mesh_id].UVColorMesh[i].z = temp_pos[i].z;
+				temp->meshes[mesh_id].UVColorMesh[i].x = temp_pos[i].x;
+				temp->meshes[mesh_id].UVColorMesh[i].y = temp_pos[i].y;
+				temp->meshes[mesh_id].UVColorMesh[i].z = temp_pos[i].z;
 			}
 			break;
 		
 		case 3:
 			for(int i=0; i<count_tex; i++) {
-				meshes[mesh_id].UVMesh[i].u = temp_tex[i].x;
-				meshes[mesh_id].UVMesh[i].v = temp_tex[i].y;
+				temp->meshes[mesh_id].UVMesh[i].u = temp_tex[i].x;
+				temp->meshes[mesh_id].UVMesh[i].v = temp_tex[i].y;
 			}
 			for(int i=0; i<count; i++) {
-				meshes[mesh_id].UVMesh[i].x = temp_pos[i].x;
-				meshes[mesh_id].UVMesh[i].y = temp_pos[i].y;
-				meshes[mesh_id].UVMesh[i].z = temp_pos[i].z;
+				temp->meshes[mesh_id].UVMesh[i].x = temp_pos[i].x;
+				temp->meshes[mesh_id].UVMesh[i].y = temp_pos[i].y;
+				temp->meshes[mesh_id].UVMesh[i].z = temp_pos[i].z;
 			}
 			break;
 
@@ -498,8 +416,8 @@ void gaas_GLTF_internal_LoadMeshes(int mesh_id, int overwriteColor, unsigned int
 
     int buf_size_indices = data->meshes[mesh_id].primitives->indices->buffer_view->size;
     int buf_offset_indices = data->meshes[mesh_id].primitives->indices->buffer_view->offset;
-    meshes[mesh_id].indices=(unsigned short*)malloc(buf_size_indices);//allocate space for indices
-    memcpy(meshes[mesh_id].indices, &data->meshes[mesh_id].primitives->indices->buffer_view->buffer->data[buf_offset_indices], buf_size_indices);//copy buffer data directly into indices buffer
+    temp->meshes[mesh_id].indices=(unsigned short*)malloc(buf_size_indices);//allocate space for indices
+    memcpy(temp->meshes[mesh_id].indices, &data->meshes[mesh_id].primitives->indices->buffer_view->buffer->data[buf_offset_indices], buf_size_indices);//copy buffer data directly into indices buffer
 
 	if(temp_pos!=NULL)   free(temp_pos);
 	if(temp_tex!=NULL)   free(temp_tex);
@@ -509,10 +427,10 @@ void gaas_GLTF_internal_LoadMeshes(int mesh_id, int overwriteColor, unsigned int
 
 void gaas_GLTF_internal_LoadMaterials(int mat_id, int miplevels) {
 	//basic material info
-	strncpy(materials[mat_id].name, data->materials[mat_id].name, 255);
-	materials[mat_id].doubleSided = data->materials[mat_id].double_sided;
-	materials[mat_id].unlit = data->materials[mat_id].unlit;
-	materials[mat_id].alphaMode = data->materials[mat_id].alpha_mode;
+	strncpy(temp->materials[mat_id].name, data->materials[mat_id].name, 255);
+	temp->materials[mat_id].doubleSided = data->materials[mat_id].double_sided;
+	temp->materials[mat_id].unlit = data->materials[mat_id].unlit;
+	temp->materials[mat_id].alphaMode = data->materials[mat_id].alpha_mode;
 	//printf("%d  %s %d %d %d\n", mat_id, materials[mat_id].name, materials[mat_id].doubleSided, materials[mat_id].unlit, materials[mat_id].alphaMode);
 
 	//printf("Mat %d tex %s\n", mat_id, data->materials[mat_id].pbr_metallic_roughness.base_color_texture.texture->image->name);
@@ -520,36 +438,36 @@ void gaas_GLTF_internal_LoadMaterials(int mat_id, int miplevels) {
 	//set up filtering and wrapping info
 	switch(data->materials[mat_id].pbr_metallic_roughness.base_color_texture.texture->sampler->wrap_s) {
 		case 33071:
-			materials[mat_id].repeat_u=GU_CLAMP;
+			temp->materials[mat_id].repeat_u=GU_CLAMP;
 			break;
 		case 33648:
-			materials[mat_id].repeat_u=GU_CLAMP;
+			temp->materials[mat_id].repeat_u=GU_CLAMP;
 			break;
 		case 10497:
-			materials[mat_id].repeat_u=GU_REPEAT;
+			temp->materials[mat_id].repeat_u=GU_REPEAT;
 			break;
 		default:
 			break;
 	}
 	switch(data->materials[mat_id].pbr_metallic_roughness.base_color_texture.texture->sampler->wrap_t) {
 		case 33071:
-			materials[mat_id].repeat_v=GU_CLAMP;
+			temp->materials[mat_id].repeat_v=GU_CLAMP;
 			break;
 		case 33648:
-			materials[mat_id].repeat_v=GU_CLAMP;
+			temp->materials[mat_id].repeat_v=GU_CLAMP;
 			break;
 		case 10497:
-			materials[mat_id].repeat_v=GU_REPEAT;
+			temp->materials[mat_id].repeat_v=GU_REPEAT;
 			break;
 		default:
 			break;
 	}
 	switch(data->materials[mat_id].pbr_metallic_roughness.base_color_texture.texture->sampler->mag_filter) {
 		case 9728:
-			materials[mat_id].filter_mag=GU_NEAREST;
+			temp->materials[mat_id].filter_mag=GU_NEAREST;
 			break;
 		case 9729:
-			materials[mat_id].filter_mag=GU_LINEAR;
+			temp->materials[mat_id].filter_mag=GU_LINEAR;
 			break;
 		default:
 			break;
@@ -557,29 +475,29 @@ void gaas_GLTF_internal_LoadMaterials(int mat_id, int miplevels) {
 	switch(data->materials[mat_id].pbr_metallic_roughness.base_color_texture.texture->sampler->min_filter) {
 		case 9728:
 			if(miplevels>0) {
-				materials[mat_id].filter_min=GU_NEAREST_MIPMAP_LINEAR;
+				temp->materials[mat_id].filter_min=GU_NEAREST_MIPMAP_LINEAR;
 			} else {
-				materials[mat_id].filter_min=GU_NEAREST;
+				temp->materials[mat_id].filter_min=GU_NEAREST;
 			}
 			break;
 		case 9729:
 			if(miplevels>0) {
-				materials[mat_id].filter_min=GU_LINEAR_MIPMAP_LINEAR;
+				temp->materials[mat_id].filter_min=GU_LINEAR_MIPMAP_LINEAR;
 			} else {
-				materials[mat_id].filter_min=GU_LINEAR;
+				temp->materials[mat_id].filter_min=GU_LINEAR;
 			}
 			break;
 		case 9984:
-			materials[mat_id].filter_min=GU_NEAREST_MIPMAP_NEAREST;
+			temp->materials[mat_id].filter_min=GU_NEAREST_MIPMAP_NEAREST;
 			break;
 		case 9985:
-			materials[mat_id].filter_min=GU_LINEAR_MIPMAP_NEAREST;
+			temp->materials[mat_id].filter_min=GU_LINEAR_MIPMAP_NEAREST;
 			break;
 		case 9986:
-			materials[mat_id].filter_min=GU_NEAREST_MIPMAP_LINEAR;
+			temp->materials[mat_id].filter_min=GU_NEAREST_MIPMAP_LINEAR;
 			break;
 		case 9987:
-			materials[mat_id].filter_min=GU_LINEAR_MIPMAP_LINEAR;
+			temp->materials[mat_id].filter_min=GU_LINEAR_MIPMAP_LINEAR;
 			break;
 		default:
 			break;
@@ -590,42 +508,74 @@ void gaas_GLTF_internal_LoadMaterials(int mat_id, int miplevels) {
 	int imageSize = data->materials[mat_id].pbr_metallic_roughness.base_color_texture.texture->image->buffer_view->size;
 	tempImageBuf=(char*)malloc(imageSize);
 	memcpy(tempImageBuf, &data->materials[mat_id].pbr_metallic_roughness.base_color_texture.texture->image->buffer_view->buffer->data[imageOffset], imageSize);
-	materials[mat_id].tex = gaasIMAGELoadImageMipmapFromBuffer(tempImageBuf, imageSize, 1, miplevels);
-	gaasIMAGEMoveMipmapToVram(materials[mat_id].tex);
+	temp->materials[mat_id].tex = gaasIMAGELoadImageMipmapFromBuffer(tempImageBuf, imageSize, 1, miplevels);
+	if(temp->materials[mat_id].tex==NULL) {
+		printf("failed to load texture for %s\n", temp->materials[mat_id].name);
+	}
+	gaasIMAGEMoveMipmapToVram(temp->materials[mat_id].tex);
 
 	free(tempImageBuf);
 }
 
+ScePspFVector3 ConvertTheMessOfFuckThatIsQuaternionsToEulerAngles(ScePspFVector4 q) {
+	ScePspFVector3 euler;
+
+	float unit = (q.x * q.x) + (q.y * q.y) + (q.z * q.z) + (q.w * q.w);
+
+	// this will have a magnitude of 0.5 or greater if and only if this is a singularity case
+	float test = q.x * q.w - q.y * q.z;
+
+    if (test > 0.4995f * unit) { // singularity at north pole
+        euler.x = GU_PI / 2;
+        euler.y = 2.0f * atan2(q.y, q.x);
+        euler.z = 0;
+    } else if (test < -0.4995f * unit) { // singularity at south pole
+        euler.x = GU_PI / 2;
+        euler.y = -2.0f * atan2(q.y, q.x);
+        euler.z = 0;
+    } else { // no singularity - this is the majority of cases
+        euler.x = asin(2.0f * (q.w * q.x - q.y * q.z));
+        euler.y = atan2(2.0f * q.w * q.y + 2.0f * q.z * q.x, 1 - 2.0f * (q.x * q.x + q.y * q.y));
+        euler.z = atan2(2.0f * q.w * q.z + 2.0f * q.x * q.y, 1 - 2.0f * (q.z * q.z + q.x * q.x));
+    }
+
+	return euler;
+}
+
 void gaas_GLTF_internal_LoadNodes(int node_id) {
 	//get current node name
-	strncpy(nodes[node_id].name, data->nodes[node_id].name, 255);
-	nodes[node_id].hasAnyTransforms = 0;
+	strncpy(temp->nodes[node_id].name, data->nodes[node_id].name, 255);
+	temp->nodes[node_id].hasAnyTransforms = 0;
+
+	temp->nodes[node_id].animId = -1;
+	temp->nodes[node_id].totChannels = 0;
 
 	//find mesh_id because cgltf is a cunt that won't tell it to me directly
-	for(int i=0; i<TotalMeshes; i++) {
-		if(strcmp(meshes[i].name, data->nodes[node_id].mesh->name)==0) {
-			nodes[node_id].meshId=i;
+	for(int i=0; i<temp->TotalMeshes; i++) {
+		if(strcmp(temp->meshes[i].name, data->nodes[node_id].mesh->name)==0) {
+			temp->nodes[node_id].meshId=i;
 			break;
 		} else {
-			nodes[node_id].meshId=-1;
+			temp->nodes[node_id].meshId=-1;
 		}
 	}
 	//printf("Mesh in Node %d: %d %s\n", node_id, nodes[node_id].meshId, nodes[node_id].name);
 
 	//load the fucking translation shit
 	if(data->nodes[node_id].has_translation) {
-		nodes[node_id].hasAnyTransforms = 1;
-		nodes[node_id].pos.x=data->nodes[node_id].translation[0];
-		nodes[node_id].pos.y=data->nodes[node_id].translation[1];
-		nodes[node_id].pos.z=data->nodes[node_id].translation[2];
+		temp->nodes[node_id].hasAnyTransforms = 1;
+		temp->nodes[node_id].pos.x=data->nodes[node_id].translation[0];
+		temp->nodes[node_id].pos.y=data->nodes[node_id].translation[1];
+		temp->nodes[node_id].pos.z=data->nodes[node_id].translation[2];
 	} else {
-		nodes[node_id].pos.x=0.0f;
-		nodes[node_id].pos.y=0.0f;
-		nodes[node_id].pos.z=0.0f;
+		temp->nodes[node_id].pos.x=0.0f;
+		temp->nodes[node_id].pos.y=0.0f;
+		temp->nodes[node_id].pos.z=0.0f;
 	}
 
+	//quaternions were a mistake
 	if(data->nodes[node_id].has_rotation) { //fucking wack
-		nodes[node_id].hasAnyTransforms = 1;
+		temp->nodes[node_id].hasAnyTransforms = 1;
 
 		ScePspFVector4 q;
 		q.x = data->nodes[node_id].rotation[0];
@@ -633,66 +583,116 @@ void gaas_GLTF_internal_LoadNodes(int node_id) {
 		q.z = data->nodes[node_id].rotation[2];
 		q.w = data->nodes[node_id].rotation[3];
 
-		float unit = (q.x * q.x) + (q.y * q.y) + (q.z * q.z) + (q.w * q.w);
-
-    	// this will have a magnitude of 0.5 or greater if and only if this is a singularity case
-    	float test = q.x * q.w - q.y * q.z;
-
-    	if (test > 0.4995f * unit) { // singularity at north pole
-    	    nodes[node_id].rot.x = GU_PI / 2;
-    	    nodes[node_id].rot.y = 2.0f * atan2(q.y, q.x);
-    	    nodes[node_id].rot.z = 0;
-    	} else if (test < -0.4995f * unit) { // singularity at south pole
-    	    nodes[node_id].rot.x = GU_PI / 2;
-    	    nodes[node_id].rot.y = -2.0f * atan2(q.y, q.x);
-    	    nodes[node_id].rot.z = 0;
-    	} else { // no singularity - this is the majority of cases
-    	    nodes[node_id].rot.x = asin(2.0f * (q.w * q.x - q.y * q.z));
-    	    nodes[node_id].rot.y = atan2(2.0f * q.w * q.y + 2.0f * q.z * q.x, 1 - 2.0f * (q.x * q.x + q.y * q.y));
-    	    nodes[node_id].rot.z = atan2(2.0f * q.w * q.z + 2.0f * q.x * q.y, 1 - 2.0f * (q.z * q.z + q.x * q.x));
-    	}
+		temp->nodes[node_id].rot = ConvertTheMessOfFuckThatIsQuaternionsToEulerAngles(q);
 
 		//printf("rotate my balls %f %f %f\n", nodes[node_id].rot.x, nodes[node_id].rot.y, nodes[node_id].rot.z);
 	} else {
-		nodes[node_id].rot.x=0.0f;
-		nodes[node_id].rot.y=0.0f;
-		nodes[node_id].rot.z=0.0f;
+		temp->nodes[node_id].rot.x=0.0f;
+		temp->nodes[node_id].rot.y=0.0f;
+		temp->nodes[node_id].rot.z=0.0f;
 	}
 
 	if(data->nodes[node_id].has_scale) {
-		nodes[node_id].hasAnyTransforms = 1;
-		nodes[node_id].scl.x=data->nodes[node_id].scale[0];
-		nodes[node_id].scl.y=data->nodes[node_id].scale[1];
-		nodes[node_id].scl.z=data->nodes[node_id].scale[2];
+		temp->nodes[node_id].hasAnyTransforms = 1;
+		temp->nodes[node_id].scl.x=data->nodes[node_id].scale[0];
+		temp->nodes[node_id].scl.y=data->nodes[node_id].scale[1];
+		temp->nodes[node_id].scl.z=data->nodes[node_id].scale[2];
 	} else {
-		nodes[node_id].scl.x=1.0f;
-		nodes[node_id].scl.y=1.0f;
-		nodes[node_id].scl.z=1.0f;
+		temp->nodes[node_id].scl.x=1.0f;
+		temp->nodes[node_id].scl.y=1.0f;
+		temp->nodes[node_id].scl.z=1.0f;
 	}
 
 	if(data->nodes[node_id].has_matrix) {
-		nodes[node_id].hasAnyTransforms = 1;
-		nodes[node_id].matrix.x.x=data->nodes[node_id].matrix[0];
-		nodes[node_id].matrix.x.y=data->nodes[node_id].matrix[1];
-		nodes[node_id].matrix.x.z=data->nodes[node_id].matrix[2];
-		nodes[node_id].matrix.x.w=data->nodes[node_id].matrix[3];
-		nodes[node_id].matrix.y.x=data->nodes[node_id].matrix[4];
-		nodes[node_id].matrix.y.y=data->nodes[node_id].matrix[5];
-		nodes[node_id].matrix.y.z=data->nodes[node_id].matrix[6];
-		nodes[node_id].matrix.y.w=data->nodes[node_id].matrix[7];
-		nodes[node_id].matrix.z.x=data->nodes[node_id].matrix[8];
-		nodes[node_id].matrix.z.y=data->nodes[node_id].matrix[9];
-		nodes[node_id].matrix.z.z=data->nodes[node_id].matrix[10];
-		nodes[node_id].matrix.z.w=data->nodes[node_id].matrix[11];
-		nodes[node_id].matrix.w.x=data->nodes[node_id].matrix[12];
-		nodes[node_id].matrix.w.y=data->nodes[node_id].matrix[13];
-		nodes[node_id].matrix.w.z=data->nodes[node_id].matrix[14];
-		nodes[node_id].matrix.w.w=data->nodes[node_id].matrix[15];
+		temp->nodes[node_id].hasAnyTransforms = 1;
+		temp->nodes[node_id].matrix.x.x=data->nodes[node_id].matrix[0];
+		temp->nodes[node_id].matrix.x.y=data->nodes[node_id].matrix[1];
+		temp->nodes[node_id].matrix.x.z=data->nodes[node_id].matrix[2];
+		temp->nodes[node_id].matrix.x.w=data->nodes[node_id].matrix[3];
+		temp->nodes[node_id].matrix.y.x=data->nodes[node_id].matrix[4];
+		temp->nodes[node_id].matrix.y.y=data->nodes[node_id].matrix[5];
+		temp->nodes[node_id].matrix.y.z=data->nodes[node_id].matrix[6];
+		temp->nodes[node_id].matrix.y.w=data->nodes[node_id].matrix[7];
+		temp->nodes[node_id].matrix.z.x=data->nodes[node_id].matrix[8];
+		temp->nodes[node_id].matrix.z.y=data->nodes[node_id].matrix[9];
+		temp->nodes[node_id].matrix.z.z=data->nodes[node_id].matrix[10];
+		temp->nodes[node_id].matrix.z.w=data->nodes[node_id].matrix[11];
+		temp->nodes[node_id].matrix.w.x=data->nodes[node_id].matrix[12];
+		temp->nodes[node_id].matrix.w.y=data->nodes[node_id].matrix[13];
+		temp->nodes[node_id].matrix.w.z=data->nodes[node_id].matrix[14];
+		temp->nodes[node_id].matrix.w.w=data->nodes[node_id].matrix[15];
 	}
 }
 
-void gaasGLTFLoad(const char* file, int miplevels, int fileoffset, int filesize, int overwriteColor, unsigned int newColor) {
-    //init cgltf
+void gaas_GLTF_internal_LoadAnims(int anim_id) {
+	temp->animations[anim_id].totalChan = data->animations[anim_id].channels_count;
+
+	temp->animations[anim_id].channels=(struct AnimChannel*)calloc(sizeof(struct AnimChannel), temp->animations[anim_id].totalChan);
+
+	for(int i=0; i<temp->animations[anim_id].totalChan; i++) {
+		//load misc. animation data
+		temp->animations[anim_id].channels[i].interpolationType = data->animations[anim_id].channels[i].sampler->interpolation;
+		temp->animations[anim_id].channels[i].animType = data->animations[anim_id].channels[i].target_path;
+		for(int y=0; y<temp->TotalNodes; y++) {
+			if(strcmp(temp->nodes[y].name, data->animations[anim_id].channels[i].target_node->name)==0) {
+				temp->animations[anim_id].channels[i].nodeID=y;
+				temp->nodes[temp->animations[anim_id].channels[i].nodeID].animId = anim_id;
+				temp->nodes[temp->animations[anim_id].channels[i].nodeID].totChannels++;
+				break;
+			} else {
+				temp->animations[anim_id].channels[i].nodeID=-1;
+			}
+		}
+
+		//input/output count, 1 for every blender time value in animation
+		temp->animations[anim_id].channels[i].inputCount = data->animations[anim_id].channels[i].sampler->input->count;
+		temp->animations[anim_id].channels[i].outputCount = data->animations[anim_id].channels[i].sampler->output->count;
+
+		//printf("out: %d  in: %d\n", animations[anim_id].channels[i].outputCount, animations[anim_id].channels[i].inputCount);
+
+		//allocate buffers for animation data
+		temp->animations[anim_id].channels[i].input=(float*)calloc(sizeof(float), temp->animations[anim_id].channels[i].inputCount);
+		temp->animations[anim_id].channels[i].output=(struct ScePspFVector3*)calloc(sizeof(struct ScePspFVector3), temp->animations[anim_id].channels[i].outputCount);
+
+		struct ScePspFVector4* temp_rot_buf = (struct ScePspFVector4*)calloc(sizeof(struct ScePspFVector4), temp->animations[anim_id].channels[i].outputCount);
+
+		//copy input buffer into memory
+		int buf_size_input = data->animations[anim_id].channels[i].sampler->input->buffer_view->size;
+    	int buf_offset_input = data->animations[anim_id].channels[i].sampler->input->buffer_view->offset;
+    	memcpy(temp->animations[anim_id].channels[i].input, &data->animations[anim_id].channels[i].sampler->input->buffer_view->buffer->data[buf_offset_input], buf_size_input);//copy buffer data into input buffer
+
+		//copy output buffer into memory
+		if(temp->animations[anim_id].channels[i].animType!=animation_path_type_rotation) { //if not rotation load directly into buffer
+			int buf_size_output = data->animations[anim_id].channels[i].sampler->output->buffer_view->size;
+    		int buf_offset_output = data->animations[anim_id].channels[i].sampler->output->buffer_view->offset;
+    		memcpy(temp->animations[anim_id].channels[i].output, &data->animations[anim_id].channels[i].sampler->output->buffer_view->buffer->data[buf_offset_output], buf_size_output);//copy buffer data into input buffer
+		} else { //else convert to euler first
+			int buf_size_output = data->animations[anim_id].channels[i].sampler->output->buffer_view->size;
+    		int buf_offset_output = data->animations[anim_id].channels[i].sampler->output->buffer_view->offset;
+    		memcpy(temp_rot_buf, &data->animations[anim_id].channels[i].sampler->output->buffer_view->buffer->data[buf_offset_output], buf_size_output);//copy buffer data into input buffer
+
+			for(int h=0; h<temp->animations[anim_id].channels[i].outputCount; h++) {
+				temp->animations[anim_id].channels[i].output[h] = ConvertTheMessOfFuckThatIsQuaternionsToEulerAngles(temp_rot_buf[h]);
+			}
+		}
+
+		free(temp_rot_buf);
+
+		/* for(int s=0; s<animations[anim_id].channels[i].inputCount; s++) {
+			printf("%d: %f\n", s, animations[anim_id].channels[i].input[s]);
+		} */
+		//printf("channel %d: %d %d %d %d %d\n", anim_id, animations[anim_id].channels[i].input, animations[anim_id].channels[i].output, animations[anim_id].channels[i].interpolationType, animations[anim_id].channels[i].animType, animations[anim_id].channels[i].nodeID);
+	}
+}
+
+gaasGLTF* gaasGLTFLoad(const char* file, int miplevels, int fileoffset, int filesize, int overwriteColor, unsigned int newColor) {
+	temp = malloc(sizeof(struct gaasGLTF));
+
+    //reset animations
+	temp->currentTime = 0.0f;
+	temp->currentFrame=0;
+	
+	//init cgltf
     cgltf_options options = {0};
 	cgltf_result result = cgltf_parse_file(&options, file, &data, fileoffset, filesize);
 	if (result == cgltf_result_success) {
@@ -707,9 +707,10 @@ void gaasGLTFLoad(const char* file, int miplevels, int fileoffset, int filesize,
 		printf("cgltf_result_success on validate\n");
 	} */
 
-	TotalMeshes = (unsigned)data->meshes_count;
-	TotalNodes = (unsigned)data->nodes_count;
-	TotalMaterials = (unsigned)data->materials_count;
+	temp->TotalMeshes = (unsigned)data->meshes_count;
+	temp->TotalNodes = (unsigned)data->nodes_count;
+	temp->TotalMaterials = (unsigned)data->materials_count;
+	temp->TotalAnims = (unsigned)data->animations_count;
 
 	//calculate how much data we need
 	/* if (result == cgltf_result_success) {
@@ -720,34 +721,35 @@ void gaasGLTFLoad(const char* file, int miplevels, int fileoffset, int filesize,
 		printf("Parent Nodes: %u\n", TotalParents);
 	} */
 
-	nodes=(struct Node*)calloc(sizeof(struct Node), TotalNodes);
-	meshes=(struct Mesh*)calloc(sizeof(struct Mesh), TotalMeshes);//create mesh array
-	materials=(struct Material*)calloc(sizeof(struct Material), TotalMaterials);
+	temp->nodes=(struct Node*)calloc(sizeof(struct Node), temp->TotalNodes);
+	temp->meshes=(struct Mesh*)calloc(sizeof(struct Mesh), temp->TotalMeshes);//create mesh array
+	temp->materials=(struct Material*)calloc(sizeof(struct Material), temp->TotalMaterials);
+	temp->animations=(struct Animation*)calloc(sizeof(struct Animation), temp->TotalAnims);
 
 	//load materials into overall array
-	for(int i=0; i<TotalMaterials; i++) {
+	for(int i=0; i<temp->TotalMaterials; i++) {
 		gaas_GLTF_internal_LoadMaterials(i, miplevels);
 	}
 	//load meshes into overall array
-	for(int i=0; i<TotalMeshes; i++) {
+	for(int i=0; i<temp->TotalMeshes; i++) {
 		gaas_GLTF_internal_LoadMeshes(i, overwriteColor, newColor);
 	}
 	//load all nodes, ignoring their hierarchy because lmao
-	for(int i=0; i<TotalNodes; i++) {
+	for(int i=0; i<temp->TotalNodes; i++) {
 		gaas_GLTF_internal_LoadNodes(i);
+	}
+	//load all animations
+	for(int i=0; i<temp->TotalAnims; i++) {
+		gaas_GLTF_internal_LoadAnims(i);
 	}
 
     cgltf_free(data);
+	return temp;
 }
-
-int TotRenderLists;
-int RenderListValid=0;
-int* RenderList[32];
-
 
 //render lists are used for selective rendering
 //when you pass a value into selectRender the renderer will only draw Nodes that are in that specific list
-void gaasGLTFLoadRenderList(const char* file, int offset, int size) {
+void gaasGLTFLoadRenderList(gaasGLTF* scene, const char* file, int offset, int size) {
 	FILE* fp;
 	char line[256];
 	int iup=0;
@@ -764,25 +766,25 @@ void gaasGLTFLoadRenderList(const char* file, int offset, int size) {
         if(strstr(line,"TotChunk =")) { 
 			char* Bitch;
 			Bitch = strdup(value+2);
-			sscanf(Bitch, "%d", &TotRenderLists);
-			RenderListValid=1;
+			sscanf(Bitch, "%d", &scene->TotRenderLists);
+			scene->RenderListValid=1;
 		}
 		//printf("TotalLists: %d\n", TotRenderLists);
 
-		if(RenderListValid==1) {
+		if(scene->RenderListValid==1) {
 			int Int1;
 			int Int2;
 			char Name[256];
 			if(sscanf(line,"chunk %d %d",&Int1,&Int2)==2) {
-				RenderList[Int1] = (int*)calloc(sizeof(int), Int2+1);
-				RenderList[Int1][0] = Int2; //first member of a render list will always be total number of nodes
+				scene->RenderList[Int1] = (int*)calloc(sizeof(int), Int2+1);
+				scene->RenderList[Int1][0] = Int2; //first member of a render list will always be total number of nodes
 			}
 
 			if(sscanf(line,"node %d %d %s",&Int1,&Int2,Name)==3) {
 				int NodeID = 0;
 				//printf("Node Name: %s %d %d\n", Name, Int1, Int2);
-				for(int i=0; i<TotalNodes; i++) {
-					if(strcmp(nodes[i].name, Name)==0) {
+				for(int i=0; i<scene->TotalNodes; i++) {
+					if(strcmp(scene->nodes[i].name, Name)==0) {
 						NodeID=i;
 						break;
 					} else {
@@ -792,13 +794,13 @@ void gaasGLTFLoadRenderList(const char* file, int offset, int size) {
 		
 				if(NodeID==-1) {
 					printf("Node not found\n");
-					RenderListValid=0;
+					scene->RenderListValid=0;
 					return;
 				}
 						
-				RenderList[Int1][Int2+1] = NodeID;
+				scene->RenderList[Int1][Int2+1] = NodeID;
 
-				RenderListValid=1;
+				scene->RenderListValid=1;
 			}
 		}
 	}
@@ -808,10 +810,10 @@ void gaasGLTFLoadRenderList(const char* file, int offset, int size) {
 
 char debugText[128];
 
-void gaasGLTFRender(int selectRender, int selectCamera, int usebb, int debugNode) {
+void gaasGLTFRender(gaasGLTF* scene, int selectRender, int selectCamera, int usebb, int debugNode) {
 	int OverallNodesToRender=0;
 
-	if(selectRender>=TotRenderLists) {
+	if(selectRender>=scene->TotRenderLists) {
 		selectRender=-1;
 	}
 
@@ -832,80 +834,150 @@ void gaasGLTFRender(int selectRender, int selectCamera, int usebb, int debugNode
 	//needed for bounding boxes to work
 	sceGumDrawArray(GU_TRIANGLES, GU_VERTEX_32BITF | GU_TRANSFORM_3D, 0, 0, 0);
 
-	if(selectRender<0 || RenderListValid==0) {
-		OverallNodesToRender=TotalNodes;
+	if(selectRender<0 || scene->RenderListValid==0) {
+		OverallNodesToRender=scene->TotalNodes;
 	} else {
-		OverallNodesToRender=RenderList[selectRender][0];
+		OverallNodesToRender=scene->RenderList[selectRender][0];
 	}
 	//printf("total: %d\n", OverallNodesToRender);
 
     sceGuFrontFace(GU_CCW);
 	for(int i=0; i<OverallNodesToRender; i++) {
 		int shortcut=0;
-		if(selectRender<0 || RenderListValid==0) {
+		if(selectRender<0 || scene->RenderListValid==0) {
 			shortcut=i;
 		} else {
-			shortcut = RenderList[selectRender][i+1];
+			shortcut = scene->RenderList[selectRender][i+1];
 		}
 		//printf("shortcut: %d\n", shortcut);
-		int meshid = nodes[shortcut].meshId;
-		int matid = meshes[meshid].matId;
+		int meshid = scene->nodes[shortcut].meshId;
+		int matid = scene->meshes[meshid].matId;
+		int animid = scene->nodes[shortcut].animId;
 
 		if(shortcut==debugNode) {
-			sprintf(debugText, "Current Node: %s\n", nodes[shortcut].name);
+			sprintf(debugText, "Current Node: %s\n", scene->nodes[shortcut].name);
 			sceGuDisable(GU_TEXTURE_2D);
 		}
 
-		sceGumMatrixMode(GU_MODEL);
-		{
-			ScePspFVector3 pos = {nodes[shortcut].pos.x, nodes[shortcut].pos.y, nodes[shortcut].pos.z};
-			ScePspFVector3 rot = {nodes[shortcut].rot.x, nodes[shortcut].rot.y, nodes[shortcut].rot.z};
-			ScePspFVector3 scl = {nodes[shortcut].scl.x, nodes[shortcut].scl.y, nodes[shortcut].scl.z};
+		if(animid>-1) {
+			scene->currentTime+=0.01; //tC
 
-			sceGumLoadIdentity();
-			sceGumTranslate(&pos);
-			sceGumRotateXYZ(&rot);
-			sceGumScale(&scl);
+			//time between two frames | tD
+			float difference = scene->animations[animid].channels[0].input[1]-scene->animations[animid].channels[0].input[0]; //for time channel doesn't matter
+
+			//when currentTime elapses the difference, increment currentFrame
+			if(scene->currentTime>difference) {
+				scene->currentFrame++;
+				scene->currentTime=0;
+			}
+
+			//reset animation when end is reached
+			if(scene->currentFrame>=scene->animations[animid].channels[0].inputCount) {
+				scene->currentFrame=0;
+			}
+			
+			float tK = scene->animations[animid].channels[0].input[scene->currentFrame];
+
+			float T = (scene->currentTime-tK)/difference;
+
+			int previousFrame = 0;
+			int nextFrame = 2;
+
+			ScePspFVector3 pos;
+			ScePspFVector3 rot;
+			ScePspFVector3 scl;
+
+			switch (scene->animations[animid].channels[0].interpolationType) {
+				case interpolation_type_step:
+					pos = scene->animations[animid].channels[0].output[scene->currentFrame];
+					rot = scene->animations[animid].channels[1].output[scene->currentFrame];
+					scl = scene->animations[animid].channels[2].output[scene->currentFrame];
+					break;
+				
+				case interpolation_type_linear:
+					pos.x = (1.0-T)*scene->animations[animid].channels[0].output[scene->currentFrame].x+T*scene->animations[animid].channels[0].output[scene->currentFrame+1].x;
+					rot.x = (1.0-T)*scene->animations[animid].channels[1].output[scene->currentFrame].x+T*scene->animations[animid].channels[1].output[scene->currentFrame+1].x;
+					scl.x = (1.0-T)*scene->animations[animid].channels[2].output[scene->currentFrame].x+T*scene->animations[animid].channels[2].output[scene->currentFrame+1].x;
+
+					pos.y = (1.0-T)*scene->animations[animid].channels[0].output[scene->currentFrame].y+T*scene->animations[animid].channels[0].output[scene->currentFrame+1].y;
+					rot.y = (1.0-T)*scene->animations[animid].channels[1].output[scene->currentFrame].y+T*scene->animations[animid].channels[1].output[scene->currentFrame+1].y;
+					scl.y = (1.0-T)*scene->animations[animid].channels[2].output[scene->currentFrame].y+T*scene->animations[animid].channels[2].output[scene->currentFrame+1].y;
+
+					pos.z = (1.0-T)*scene->animations[animid].channels[0].output[scene->currentFrame].z+T*scene->animations[animid].channels[0].output[scene->currentFrame+1].z;
+					rot.z = (1.0-T)*scene->animations[animid].channels[1].output[scene->currentFrame].z+T*scene->animations[animid].channels[1].output[scene->currentFrame+1].z;
+					scl.z = (1.0-T)*scene->animations[animid].channels[2].output[scene->currentFrame].z+T*scene->animations[animid].channels[2].output[scene->currentFrame+1].z;
+					break;
+				
+				case interpolation_type_cubic_spline:
+					pos = scene->animations[animid].channels[0].output[scene->currentFrame];
+					rot = scene->animations[animid].channels[1].output[scene->currentFrame];
+					scl = scene->animations[animid].channels[2].output[scene->currentFrame];
+					break;
+
+				default:
+					break;
+			}
+
+			sceGumMatrixMode(GU_MODEL);
+			{
+				sceGumLoadIdentity();
+				sceGumTranslate(&pos);
+				sceGumRotateXYZ(&rot);
+				sceGumScale(&scl);
+			}
+		} else {
+			sceGumMatrixMode(GU_MODEL);
+			{
+				ScePspFVector3 pos = {scene->nodes[shortcut].pos.x, scene->nodes[shortcut].pos.y, scene->nodes[shortcut].pos.z};
+				ScePspFVector3 rot = {scene->nodes[shortcut].rot.x, scene->nodes[shortcut].rot.y, scene->nodes[shortcut].rot.z};
+				ScePspFVector3 scl = {scene->nodes[shortcut].scl.x, scene->nodes[shortcut].scl.y, scene->nodes[shortcut].scl.z};
+
+				sceGumLoadIdentity();
+				sceGumTranslate(&pos);
+				sceGumRotateXYZ(&rot);
+				sceGumScale(&scl);
+			}
 		}
 
-		if(materials[matid].tex!=NULL) {
-			if(materials[matid].doubleSided==1) {
+		if(scene->materials[matid].tex!=NULL) {
+			if(scene->materials[matid].doubleSided==1) {
 				sceGuDisable(GU_CULL_FACE);
 			}
 			/* if(materials[matid].unlit==1) {
 				sceGuDisable(GU_LIGHTING);
 			} */
 			
-			gaasGFXTextureMip(materials[matid].tex, materials[matid].filter_min, materials[matid].filter_mag, materials[matid].repeat_u, materials[matid].repeat_v, GU_TFX_MODULATE, GU_TEXTURE_AUTO, 0.75);
+			gaasGFXTextureMip(scene->materials[matid].tex, scene->materials[matid].filter_min, scene->materials[matid].filter_mag, scene->materials[matid].repeat_u, scene->materials[matid].repeat_v, GU_TFX_MODULATE, GU_TEXTURE_AUTO, 0.75);
 		} else {
-			printf("Invalid texture data in Material %d %s\n", matid, materials[matid].name);
+			printf("Invalid texture data in Material %d %s\n", matid, scene->materials[matid].name);
 		}
 
-		if(usebb==1 && nodes[shortcut].hasAnyTransforms==0) {
-			sceGuBeginObject(GU_VERTEX_32BITF, 8, 0, meshes[meshid].bbox);
+		if(usebb==1 && scene->nodes[shortcut].hasAnyTransforms==0) {
+			//sceGumDrawArray(GU_POINTS, GU_VERTEX_32BITF | GU_TRANSFORM_3D, 8, 0, meshes[meshid].bbox);
+			sceGuBeginObject(GU_VERTEX_32BITF, 8, 0, scene->meshes[meshid].bbox);
 		}
 
-		switch (meshes[meshid].meshType) {
+		switch (scene->meshes[meshid].meshType) {
 			case 0:
-				sceGumDrawArray(meshes[meshid].prim, meshes[meshid].vtype, meshes[meshid].vertCount, meshes[meshid].indices, meshes[meshid].UVColorNormalMesh);
+				sceGumDrawArray(scene->meshes[meshid].prim, scene->meshes[meshid].vtype, scene->meshes[meshid].vertCount, scene->meshes[meshid].indices, scene->meshes[meshid].UVColorNormalMesh);
 				break;
 			
 			case 1:
-				sceGumDrawArray(meshes[meshid].prim, meshes[meshid].vtype, meshes[meshid].vertCount, meshes[meshid].indices, meshes[meshid].UVNormalMesh);
+				sceGumDrawArray(scene->meshes[meshid].prim, scene->meshes[meshid].vtype, scene->meshes[meshid].vertCount, scene->meshes[meshid].indices, scene->meshes[meshid].UVNormalMesh);
 				break;
 			
 			case 2:
-				sceGumDrawArray(meshes[meshid].prim, meshes[meshid].vtype, meshes[meshid].vertCount, meshes[meshid].indices, meshes[meshid].UVColorMesh);
+				sceGumDrawArray(scene->meshes[meshid].prim, scene->meshes[meshid].vtype, scene->meshes[meshid].vertCount, scene->meshes[meshid].indices, scene->meshes[meshid].UVColorMesh);
 				break;
 
 			case 3:
-				sceGumDrawArray(meshes[meshid].prim, meshes[meshid].vtype, meshes[meshid].vertCount, meshes[meshid].indices, meshes[meshid].UVMesh);
+				sceGumDrawArray(scene->meshes[meshid].prim, scene->meshes[meshid].vtype, scene->meshes[meshid].vertCount, scene->meshes[meshid].indices, scene->meshes[meshid].UVMesh);
 				break;
 
 			default:
 				break;
 		}
-		if(usebb==1  && nodes[shortcut].hasAnyTransforms==0) {
+		if(usebb==1 && scene->nodes[shortcut].hasAnyTransforms==0) {
 			sceGuEndObject();
 		}
 		//sceGuEnable(GU_LIGHTING);
@@ -915,48 +987,61 @@ void gaasGLTFRender(int selectRender, int selectCamera, int usebb, int debugNode
 		}
 	}
     sceGuFrontFace(GU_CW);
-	if(debugNode>-1 && debugNode<TotalNodes) {
+	if(debugNode>-1 && debugNode<scene->TotalNodes) {
 		gaasDEBUGDrawString(debugText, 0, 64, 0xFF00FF00, 0);
 	}
 }
 
-void gaasGLTFFree() {
+void gaasGLTFFree(gaasGLTF* scene) {
 	//printf("free 0\n");
-	if(RenderListValid==1) {
-		for(int i=0; i<TotRenderLists; i++){
-			free(RenderList[i]);
+	if(scene->RenderListValid==1) {
+		for(int i=0; i<scene->TotRenderLists; i++){
+			free(scene->RenderList[i]);
 		}
 	}
-	RenderListValid=0;
+	scene->RenderListValid=0;
 
-	for(int i=0; i<TotalMeshes; i++) {
-		free(meshes[i].indices);
-		meshes[i].indices=0;
+	for(int i=0; i<scene->TotalMeshes; i++) {
+		free(scene->meshes[i].indices);
+		scene->meshes[i].indices=0;
 		//printf("free %d.1\n", i);
-		if(meshes[i].UVColorNormalMesh) free(meshes[i].UVColorNormalMesh);
-		if(meshes[i].UVNormalMesh) free(meshes[i].UVNormalMesh);
-		if(meshes[i].UVColorMesh) free(meshes[i].UVColorMesh);
-		if(meshes[i].UVMesh) free(meshes[i].UVMesh);
-		meshes[i].UVColorNormalMesh=0;
-		meshes[i].UVNormalMesh=0;
-		meshes[i].UVColorMesh=0;
-		meshes[i].UVMesh=0;
+		if(scene->meshes[i].UVColorNormalMesh) free(scene->meshes[i].UVColorNormalMesh);
+		if(scene->meshes[i].UVNormalMesh) free(scene->meshes[i].UVNormalMesh);
+		if(scene->meshes[i].UVColorMesh) free(scene->meshes[i].UVColorMesh);
+		if(scene->meshes[i].UVMesh) free(scene->meshes[i].UVMesh);
+		scene->meshes[i].UVColorNormalMesh=0;
+		scene->meshes[i].UVNormalMesh=0;
+		scene->meshes[i].UVColorMesh=0;
+		scene->meshes[i].UVMesh=0;
 		//printf("free %d.2\n", i);
 	}
 
-	for(int i=0; i<TotalMaterials; i++) {
-		gaasIMAGEFreeMipmap(materials[i].tex);
-		materials[i].tex=0;
+	for(int i=0; i<scene->TotalMaterials; i++) {
+		gaasIMAGEFreeMipmap(scene->materials[i].tex);
+		scene->materials[i].tex=0;
 		//printf("free %d.3\n", i);
 	}
 
-	free(materials);
-	materials=0;
+	for(int i=0; i<scene->TotalAnims; i++) {
+		for (int j=0; j<scene->animations[i].totalChan; j++) {
+			free(scene->animations[i].channels[j].input);
+			scene->animations[i].channels[j].input=0;
+			free(scene->animations[i].channels[j].output);
+			scene->animations[i].channels[j].output=0;
+		}
+		free(scene->animations[i].channels);
+		scene->animations[i].channels=0;
+	}
+
+	free(scene->animations);
+	scene->animations=0;
+	free(scene->materials);
+	scene->materials=0;
 	//printf("free 1\n");
-	free(meshes);
-	meshes=0;
+	free(scene->meshes);
+	scene->meshes=0;
 	//printf("free 2\n");
-	free(nodes);
-	meshes=0;
+	free(scene->nodes);
+	scene->meshes=0;
 	//printf("free 3\n");
 }
