@@ -1,5 +1,6 @@
 #include <pspgu.h>
 #include <pspgum.h>
+#include <pspdisplay.h>
 #include <stdio.h>
 #include <vram.h>
 
@@ -28,9 +29,9 @@ void gaasGFXDrawFallbackTex() {
 void gaasGFXInit(int PixelSize, int Psm) {
 	int frameBufferSize = PixelSize*BUF_WIDTH*SCR_HEIGHT;
 
-	fbp0 = valloc(frameBufferSize)-0x4000000;
-	fbp1 = valloc(frameBufferSize)-0x4000000;
-	zbp = valloc(ZBUF_SIZE)-0x4000000;
+	fbp0 = vramalloc(frameBufferSize)-0x4000000;
+	fbp1 = vramalloc(frameBufferSize)-0x4000000;
+	zbp = vramalloc(ZBUF_SIZE)-0x4000000;
 
 	printf("fbp0: 0x%x  fbp1: 0x%x  zbp: 0x%x\n", fbp0, fbp1, zbp);
 

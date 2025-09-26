@@ -808,7 +808,7 @@ void gaasGLTFLoadRenderList(gaasGLTF* scene, const char* file, int offset, int s
 	fclose(fp);
 }
 
-char debugText[128];
+char debugText[272];
 
 void gaasGLTFRender(gaasGLTF* scene, int selectRender, int selectCamera, int usebb, int debugNode) {
 	int OverallNodesToRender=0;

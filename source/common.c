@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <psputility.h>
 
+#include "common.h"
+
 int AVModulesInited = 0;
 
 void gaasLoadAVModules() {

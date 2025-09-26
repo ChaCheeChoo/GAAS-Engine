@@ -77,8 +77,7 @@ gaasImage* ImageCreate(int w, int h) {
     return tex;
 }
 
-static void *debugbuffer;
-static char* anotherTempBuffer;
+static unsigned char* anotherTempBuffer;
 
 //load png from file
 gaasImage* LoadPNG(const char* file, int usesoffset, int offset, int filesize) {
@@ -341,8 +340,8 @@ void gaasIMAGEMoveToVram(gaasImage* source) {
     }
 
     int texSize = source->tw*source->h*sizeof(gaasColor);
-    void* dest = valloc(texSize);
-    memcpy((gaasColor)dest|0x40000000, source->data, texSize);
+    void* dest = vramalloc(texSize);
+    memcpy((void*)((gaasColor)dest|0x40000000), source->data, texSize);
     free(source->data);
 
     if(dest>0x4200000) {
@@ -367,7 +366,7 @@ void gaasIMAGEMoveMipmapToVram(gaasImageMipmap* source) {
 }
 
 void gaasIMAGEWritePNG(gaasImage* source, const char* out) {
-    unsigned error = lodepng_encode32_file(out, source->data, source->w, source->h);
+    unsigned error = lodepng_encode32_file(out, (unsigned char*)source->data, source->w, source->h);
 
     if(error) printf("error %u: %s\n", error, lodepng_error_text(error));
 }

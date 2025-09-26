@@ -7,7 +7,7 @@ OBJS		= source/vram.o source/imageloader.o source/callback.o source/lighting.o s
 				source/ctrl.o source/collision.o source/wavaudio.o source/glTFLoader.o source/lodepng/lodepng.o\
 
 INCDIR		= 
-CFLAGS		= -O2 -G0 -Wall
+CFLAGS		= -O2 -G0 -Wall -fcommon
 CXXFLAGS	= $(CFLAGS) -fno-exceptions -fno-rtti
 ASFLAGS	= $(CFLAGS)
 

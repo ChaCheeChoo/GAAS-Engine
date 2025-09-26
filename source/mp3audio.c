@@ -7,6 +7,7 @@
 #include <pspmp3.h>
 #include <psputility.h>
 #include "mp3audio.h"
+#include "common.h"
 
 #define GAAS_NUM_AUDIO_CHANNELS 8
 #define GAAS_NUM_AUDIO_SAMPLES 512
@@ -32,13 +33,13 @@ struct gaasCurrentMP3 {
 
 struct gaasCurrentMP3 curmp3;
 
-char mp3Buf[16*1024]  __attribute__((aligned(64)));
-short pcmBuf[16*(1152/2)]  __attribute__((aligned(64)));
+unsigned char mp3Buf[16*1024]  __attribute__((aligned(64)));
+unsigned short pcmBuf[16*(1152/2)]  __attribute__((aligned(64)));
 
 int fillStreamBuffer(int fd, int handle) {
-	char* dst;
-	int write;
-	int pos;
+	unsigned char* dst;
+	long int write;
+	long int pos;
 
 	curmp3.status = sceMp3GetInfoToAddStreamData(handle, &dst, &write, &pos); 
 
@@ -53,7 +54,7 @@ int fillStreamBuffer(int fd, int handle) {
 	return (pos>0);
 }
 
-void mp3_player() {
+int mp3_player(SceSize args, void *argp) {
 	//Mp3 File Buf
 	curmp3.status = sceMp3InitResource();
 	curmp3.handle = sceMp3ReserveMp3Handle(&curmp3.mp3Init);
@@ -123,6 +124,7 @@ void mp3_player() {
 	sceIoClose(curmp3.fd);
 	printf("MP3 stopped %d\n", curmp3.status);
 	sceKernelExitThread(0);
+	return 0;
 }
 
 void gaasMP3Init() {
@@ -142,11 +144,11 @@ void gaasMP3Load(const char* filename, int usesoffset, int offset, int size) {
 		curmp3.mp3Init.mp3StreamStart = sceIoLseek32(curmp3.fd, offset, SEEK_SET);
 		curmp3.mp3Init.mp3StreamEnd = sceIoLseek32(curmp3.fd, offset+size, SEEK_SET);
 	}
-	curmp3.mp3Init.unk1 = 0;
-	curmp3.mp3Init.unk2 = 0;
+	curmp3.mp3Init.mp3StreamStart = 0;
+	curmp3.mp3Init.mp3StreamEnd = 0;
 	curmp3.mp3Init.mp3Buf = mp3Buf;
 	curmp3.mp3Init.mp3BufSize = sizeof(mp3Buf);
-	curmp3.mp3Init.pcmBuf = pcmBuf;
+	curmp3.mp3Init.pcmBuf = (unsigned char*)pcmBuf;
 	curmp3.mp3Init.pcmBufSize = sizeof(pcmBuf);
 }
 

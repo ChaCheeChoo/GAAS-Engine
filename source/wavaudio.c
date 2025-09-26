@@ -21,7 +21,7 @@ enum {
 };
 
 struct gaasAudioChannel {
-	int fd;
+	FILE* fd;
 	int busy;
 	SceUID threadhandle;
 	int channel;
@@ -35,7 +35,7 @@ struct gaasAudioChannel AudioStatus[8];
 
 int wav_player(SceSize args, void *argp);
 
-static int seekChunk(int fd, int size, u32 id) {
+static int seekChunk(FILE* fd, int size, u32 id) {
 	typedef struct {
 		u32 id;
 		u32 size;

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 struct GWDheader { //size: 28 bytes
     uint8_t signature[4]; //signature/magic: GWD\0
