@@ -144,8 +144,6 @@ void gaasMP3Load(const char* filename, int usesoffset, int offset, int size) {
 		curmp3.mp3Init.mp3StreamStart = sceIoLseek32(curmp3.fd, offset, SEEK_SET);
 		curmp3.mp3Init.mp3StreamEnd = sceIoLseek32(curmp3.fd, offset+size, SEEK_SET);
 	}
-	curmp3.mp3Init.mp3StreamStart = 0;
-	curmp3.mp3Init.mp3StreamEnd = 0;
 	curmp3.mp3Init.mp3Buf = mp3Buf;
 	curmp3.mp3Init.mp3BufSize = sizeof(mp3Buf);
 	curmp3.mp3Init.pcmBuf = (unsigned char*)pcmBuf;
