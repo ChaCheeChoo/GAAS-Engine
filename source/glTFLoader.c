@@ -715,10 +715,9 @@ gaasGLTF* gaasGLTFLoad(const char* file, int miplevels, int fileoffset, int file
 	//calculate how much data we need
 	/* if (result == cgltf_result_success) {
 		printf("Type: %u\n", data->file_type);
-		printf("Nodes: %u\n", TotalNodes);
-		printf("Meshes: %u\n", TotalMeshes);
-		printf("Materials: %u\n", TotalMaterials);
-		printf("Parent Nodes: %u\n", TotalParents);
+		printf("Nodes: %u\n", temp->TotalMeshes);
+		printf("Meshes: %u\n", temp->TotalMeshes);
+		printf("Materials: %u\n", temp->TotalMaterials);
 	} */
 
 	temp->nodes=(struct Node*)calloc(sizeof(struct Node), temp->TotalNodes);

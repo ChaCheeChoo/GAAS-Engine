@@ -1050,6 +1050,8 @@ static cgltf_result cgltf_default_file_read(const struct cgltf_memory_options* m
 		return cgltf_result_file_not_found;
 	}
 
+	fseek(file, offset, SEEK_SET);
+
 	cgltf_size file_size = size ? *size : 0;
 
 	if (file_size == 0)
