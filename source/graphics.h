@@ -14,13 +14,17 @@ typedef struct Texture {
 	const void* data;
 } Texture;
 
-static unsigned int __attribute__((aligned(16))) DisplayList[262144];
-
-void* fbp0;
-const void* fbp1;
-const void* zbp;
-
 /**
+ * You must declare framebuffers manually by putting in your code:
+ * 		static unsigned int __attribute__((aligned(16))) DisplayList[262144];
+ *
+ *		void* fbp0;
+ *		const void* fbp1;
+ *		const void* zbp;
+ * 
+ * then pass them into GFXInit like: 
+ * 		gaasGFXInit(4, GU_PSM_8888, &fbp0, &fbp1, &zbp, (unsigned int *)&DisplayList);
+ * 
  * initializes GU for 3d and 2d rendering
  * keep in mind you can manually change the settings after initialization
  * PixelSize - used to calculate vram needed for framebuffer
@@ -30,7 +34,7 @@ const void* zbp;
  * 	GU_PSM_5551 - 2
  * 	GU_PSM_8888 - 4
 **/
-void gaasGFXInit(int PixelSize, int Psm);
+void gaasGFXInit(int PixelSize, int Psm, void* fbp0, const void* fbp1, const void* zbp, unsigned int* DisplayList);
 
 /**
  * Draws an animated sprite on screen using a sprite sheet

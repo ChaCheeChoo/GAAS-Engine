@@ -26,7 +26,7 @@ void gaasGFXDrawFallbackTex() {
 	sceGuTexFilter(GU_NEAREST, GU_NEAREST);
 }
 
-void gaasGFXInit(int PixelSize, int Psm) {
+void gaasGFXInit(int PixelSize, int Psm, void* fbp0, const void* fbp1, const void* zbp, unsigned int* DisplayList) {
 	int frameBufferSize = PixelSize*BUF_WIDTH*SCR_HEIGHT;
 
 	fbp0 = vramalloc(frameBufferSize)-0x4000000;
